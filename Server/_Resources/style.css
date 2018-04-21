@@ -1,0 +1,49 @@
+html, body { 
+    font-family:Geneva, Arial, Helvetica, sans-serif;
+    font-size: large;
+    background-color:#C6C6FA;
+    height: 100%;
+    width: 100%;
+    margin: 4px;
+}
+
+TD.title {
+    max-width:250px;
+    overflow:hidden;
+    white-space: nowrap;
+}
+TD.serie {
+    max-width: 100px;
+    overflow:hidden;
+    white-space: nowrap;
+}
+TD.pages {
+    min-width: 50px;
+    overflow:hidden;
+    white-space: nowrap;
+    text-align: center;
+}
+TD.down {
+    width: 50px;
+    overflow:hidden;
+    white-space: nowrap;
+    text-align: center;
+    background-color:#8A8ACA;
+}
+
+input[type=submit].pages {
+    max-width: 80px;
+    min-height: 40px;
+    padding:4px 4px;
+    box-sizing: border-box;
+    font-size: large;
+}
+input[type=submit].segap {
+    max-width: 80px;
+    min-height: 40px;
+    padding:4px 4px;
+    box-sizing: border-box;
+    font-size: large;
+    background-color:#06060A;
+    color: #C6C6FA;
+}

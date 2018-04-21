@@ -11,7 +11,7 @@ DocString = """ An addition to Calibre (https://calibre-ebook.com/)
 
  From a Calibre Database, Builds an index ePub of ebooks that allows download books & series 
 
- Additional features compared to the equivalent fonction embeeded in Calibre:
+ Additional features compared to the equivalent fonction embeded in Calibre:
     * individual Ebooks can be downloaded from the index file
     * all ebooks from the same serie can be downloaded within a single zip
     * runs on a Synology NAS
@@ -60,8 +60,7 @@ SOFTWARE.
 # Make CheckPip etc configurable
 # DONE check against https://github.com/idpf/epubcheck
 
-############# BUGS
-# Remove DIV /DIV <br> in the descriptions off books
+
 #----------------------------------------------------------------------
 
 import os

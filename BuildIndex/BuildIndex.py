@@ -48,20 +48,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
   """
-#----------------------------------------------------------------------
-# TODO:
-#----------------------------------------------------------------------
-# Get config items for
-#      the URL to download a file,
-#      the URL to download a serie,
-#      Verbose
-#      extended help
-# Get a separate CSS file for the book
-# Make CheckPip etc configurable
-# DONE check against https://github.com/idpf/epubcheck
-
-
-#----------------------------------------------------------------------
 
 import os
 import sys
@@ -555,7 +541,7 @@ class Author:
 
     
     def readAuthor(self):
-       self.hashOfGroups = {}
+        self.hashOfGroups = {}
         for myBook in self.ListOfBooks:
             if (myBook.group):
                 if (myBook.group in self.hashOfGroups):

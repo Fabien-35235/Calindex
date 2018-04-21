@@ -48,5 +48,18 @@ A Module of Calisson
 
 + epub readers typically will NOT read files greater than 10MB
     To avoid issues, use one of the following options:
-        +subjects = (a list of subjects)
-        -subjects = (a list of subjects)
+        onlySubjects = (a list of subjects)
+        avoidSujects = (a list of subjects)
+        
+----------------------------------------------------------------------
+ TODO:
+----------------------------------------------------------------------
+ Get config items for
+      the URL to download a file,
+      the URL to download a serie,
+      Verbose
+      extended help
+ Get a separate CSS file for the book
+ + onlySubjects & avoidSujects
+
+#----------------------------------------------------------------------

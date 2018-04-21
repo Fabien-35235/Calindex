@@ -704,22 +704,28 @@ class Library:
         GlobIndex.content += " <body>\n"
 
         GlobIndex.content += u'<h1>A-Z Index</h1>\n'
+        excludeURL = ''
+        onlyURL = ''
         
         if self.excludedTags:
             GlobIndex.content += '<br>Excluded tags: '
+            excludeURL = '&avoidSubjects='
             for tag in self.excludedTags:
                 GlobIndex.content += tag + ' '
+                excludeURL += NormalizeURL(tag + ',')
             GlobIndex.content += '</br>'    
         
         if self.onlyTags :
             GlobIndex.content += '<br>Only the following tags: '
+            onlyURL = '&onlySubjects='
             for tag in self.onlyTags:
                 GlobIndex.content += tag + ' '
+                onlyURL += NormalizeURL(tag + ',')
             GlobIndex.content += '</br>'    
                 
 
                 
-        GlobIndex.content += '<p style="text-align:center;"><a href="'+ NormalizeURL(self.BaseURL+'index.epub') + '">Reload this index book</a></p>\n'
+        GlobIndex.content += '<p style="text-align:center;"><a href="'+ NormalizeURL(self.BaseURL+'index.epub'+onlyURL+excludeURL) + '">Reload this index book</a></p>\n'
         
         GlobIndex.content += '<p></p>\n'
         GlobIndex.content += '<table style="width:100%">\n'
@@ -845,7 +851,7 @@ if __name__ == "__main__":
     parser.addArg('EpubIndex','index.epub','basename of generated epub')
     parser.addArg('Verbose',False,'Print this Help')
     parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed')
-    parser.addArg('avoidSujects', None, 'Subjects in this LIST will NOT be indexed')
+    parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed')
     
     parser.doParse()
     onlySubjects = None
@@ -853,8 +859,8 @@ if __name__ == "__main__":
         onlySubjects = list(map(deNormalize,  parser.getValue('onlySubjects').split(',')))
         
     exclSubjects = None
-    if (parser.getValue('avoidSujects')):
-        exclSubjects = list(map(deNormalize,  parser.getValue('avoidSujects').split(',')))
+    if (parser.getValue('avoidSubjects')):
+        exclSubjects = list(map(deNormalize,  parser.getValue('avoidSubjects').split(',')))
        
     
     

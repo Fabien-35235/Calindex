@@ -555,25 +555,13 @@ class Author:
 
     
     def readAuthor(self):
-        # self.ListOfBooks = []
-        # locals = os.listdir(self.dirname)
-        # for file in locals:
-        #     fullname = self.dirname+"/"+file
-        #     if (os.path.isdir(fullname)):
-        #         self.ListOfBooks.append(Book(self,file))
-        # #self.ListOfBooks.sort(key=lambda x: x.name)    
-        # self.ListOfBooks.sort()
-        # 
-        self.hashOfGroups = {}
+       self.hashOfGroups = {}
         for myBook in self.ListOfBooks:
             if (myBook.group):
                 if (myBook.group in self.hashOfGroups):
                     self.hashOfGroups[myBook.group].append(myBook)
                 else:
                     self.hashOfGroups[myBook.group] = [myBook]
-            #else:
-            #    print("NO GROUP!!") 
-            #print("SetGroup", myBook.group)    
         
         
     def printAuthor(self, Lib):
@@ -759,10 +747,7 @@ class Args:
     def doParse(self):
         self.args = self.parser.parse_args()
        
-        print("ConfigFile = ",  self.args.configFile)
-        print("ConfigFile2 = ",  self.configFile)
-        
-        #self.configFile has already a default value
+       #self.configFile has already a default value
         if (self.args.configFile and os.path.isfile( self.args.configFile)):
             self.configFile = self.args.configFile
             
@@ -777,8 +762,6 @@ class Args:
             fileValues = None
             
         self.values['configFile'] = self.configFile
-        
-    
         
         for key in self.values:
             

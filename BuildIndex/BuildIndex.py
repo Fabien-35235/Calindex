@@ -378,7 +378,19 @@ def NormalizeURL(myString):
     res = re.sub("'",'%27',res)
     res = re.sub('\(','%28',res)
     res = re.sub('\)','%29',res)
+    return res
 
+def deNormalize(myString):
+    res = re.sub('%2C',',',myString)
+    res = re.sub('%20'," ",res) 
+    res = re.sub('%21',"!",res)
+    res = re.sub('%22','"',res)
+    res = re.sub('%23','#',res)
+    res = re.sub('%24','\$',res) 
+    res = re.sub('%26',"&",res)
+    res = re.sub('%27',"'",res)
+    res = re.sub('%28','\(',res)
+    res = re.sub('%29','\)',res)
     return res
     
 def stringify(myString):
@@ -616,8 +628,15 @@ class Library:
         #q += " ORDER BY author_sort, serie_id, b.series_index, title " #Ne trie pas correctement, on ne sait pas pourquoi
         return q
               
-        
-    def __init__(self, baseURL, myCover,dataBase, fileBase):
+    def excluded(self, tag):
+        if (self.onlyTags):
+            return  len(list(filter(lambda x: x == tag, self.onlyTags))) == 0
+        if (self.excludedTags):
+            return  len(list(filter(lambda x: x == tag, self.excludedTags))) != 0
+        return False
+    
+    
+    def __init__(self, baseURL, myCover,dataBase, fileBase, onlyTags=None, excludedTags=None):
         self.BaseURL = baseURL
         self.coverFile = myCover
         self.ListOfAuthorPages = []        
@@ -627,6 +646,8 @@ class Library:
         self.database = dataBase
         self.filebase = fileBase
         self.Authors = []
+        self.onlyTags = onlyTags
+        self.excludedTags = excludedTags
         self.connection = sqlite3.connect(dataBase)
         self.connection.row_factory = sqlite3.Row
         cur = self.connection.cursor()
@@ -636,10 +657,18 @@ class Library:
         curAuthor=None
         #print(curRow.keys())
         while(curRow != None):
+            
+            if (self.excluded(curRow['tag_name'])):
+                print("EXCLUDED", curRow['title'], curRow['tag_name'])
+                curRow= cur.fetchone()
+                continue
+            
+            
             if (curRow['author_name'] != curName):
                 curAuthor = Author(curRow['author_name'])
                 curName = curRow['author_name']
                 self.Authors.append(curAuthor)
+                
             curBook = Book(curAuthor,
                            curRow['book_id'],
                            curRow['title'],
@@ -676,6 +705,20 @@ class Library:
 
         GlobIndex.content += u'<h1>A-Z Index</h1>\n'
         
+        if self.excludedTags:
+            GlobIndex.content += '<br>Excluded tags: '
+            for tag in self.excludedTags:
+                GlobIndex.content += tag + ' '
+            GlobIndex.content += '</br>'    
+        
+        if self.onlyTags :
+            GlobIndex.content += '<br>Only the following tags: '
+            for tag in self.onlyTags:
+                GlobIndex.content += tag + ' '
+            GlobIndex.content += '</br>'    
+                
+
+                
         GlobIndex.content += '<p style="text-align:center;"><a href="'+ NormalizeURL(self.BaseURL+'index.epub') + '">Reload this index book</a></p>\n'
         
         GlobIndex.content += '<p></p>\n'
@@ -709,6 +752,10 @@ class Library:
         GlobIndex.content += '</table>\n'
         # write to the file
         book.Generate()
+
+#--------------------------------------------------------------
+#   Args library
+#--------------------------------------------------------------
 
 
 class Args:
@@ -776,11 +823,10 @@ class Args:
         return ''
 
     
-# TODO
-# Ajouter un argument accumulatif ou chaine
-# continent la liste des subjects
-# Espionnage 	Fantastique 	Fantasy 	Historique 	Humour 	Jeunesse 	Littérature 	Philosophie 	Policier 	Science Fiction
-# Puis filtrer uniqument ceux-ci
+#--------------------------------------------------------------
+#   Main
+#--------------------------------------------------------------
+
 
 if __name__ == "__main__":
     # first, --conf is used,
@@ -798,13 +844,27 @@ if __name__ == "__main__":
     parser.addArg('Filebase','.','the path to the Calibre files')
     parser.addArg('EpubIndex','index.epub','basename of generated epub')
     parser.addArg('Verbose',False,'Print this Help')
-    parser.doParse()
+    parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed')
+    parser.addArg('avoidSujects', None, 'Subjects in this LIST will NOT be indexed')
     
-   
+    parser.doParse()
+    onlySubjects = None
+    if (parser.getValue('onlySubjects')):
+        onlySubjects = list(map(deNormalize,  parser.getValue('onlySubjects').split(',')))
+        
+    exclSubjects = None
+    if (parser.getValue('avoidSujects')):
+        exclSubjects = list(map(deNormalize,  parser.getValue('avoidSujects').split(',')))
+       
+    
+    
+    
     myLibrary = Library(parser.getValue('URL'),
                         parser.getValue('Cover'),
                         parser.getValue('Database'),
-                        parser.getValue('Filebase'))
+                        parser.getValue('Filebase'),
+                        onlyTags = onlySubjects,
+                        excludedTags = exclSubjects)
     
     maxAuthors = None
     if (parser.getValue('MaxAuthors')):

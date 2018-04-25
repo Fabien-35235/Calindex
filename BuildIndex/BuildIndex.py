@@ -61,6 +61,8 @@ import argparse
 import importlib
 import sqlite3
 import configparser
+import signal
+import json
 
 #----------------------------------------------------------------------
 # EXTRA Module verifications
@@ -108,15 +110,11 @@ def CheckModule(Descr):
     if (Mod):
         return Mod
     
-    print(Mod," is NOT available after an attempt to install it via pip")
+    print(Descr," is NOT available after an attempt to install it via pip")
     print("install it manually through the following command:")
-    print("python3 -m pip install " + Mod)
+    print("python3 -m pip install " + Descr)
     sys.exit(0)
 
-
-CheckPip()
-Image = ImportModule('PIL.Image', "defaulting to ImageMagic")
-url_normalize = CheckModule('url_normalize')
 
 
 
@@ -689,7 +687,7 @@ class Library:
             
             
     def Build(self,Filename, maxAuthors):
-        today = date.today()
+        today = date.today().ctime()
         book = Epub('Bibliothèque ' + str(today), Filename, 'ID1234567890', 'fr')
       
        
@@ -764,25 +762,36 @@ class Library:
 #--------------------------------------------------------------
 
 
-class Args:
+class Arg:
+    def __init__(self, key,  defaultVal = None, helper = None, specific = False, typedescr = None):
+        self.key = key
+        self.default = defaultVal
+        self.value = None
+        self.helpers= helper
+        self.specific = specific
+        self.typedescr = typedescr
+ 
+    def getHelp(self):
+        return self.key + '  : "' + str(self.value) + '" : default="' + str(self.default) + '" ' + self.helpers
+        
+    def getConfig(self):
+        return self.key + ' = ' + str(self.value)
+        
+class ArgsList:
     def __init__(self, helper):
         self.help = helper
-        self.values = {}
-        self.helpers = {}
-        self.defaults = {}
+        self.arglist = {}
         self.parser = argparse.ArgumentParser(description=helper)
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
         
         self.config = configparser.ConfigParser()
 
         
-    def addArg(self, key, defaultVal = None, helper = None):
-        self.defaults[key] = defaultVal
-        self.values[key] = None
-        self.helpers[key]= helper
+    def addArg(self, key, defaultVal = None, helper = None, specific = False, typedescr=None):
+        self.arglist[key] = Arg(key, defaultVal, helper,specific=specific, typedescr=typedescr)
         self.parser.add_argument('--'+key, dest=key, action='store', default=None, help=helper)
         self.configFile = 'BuildIndex.ini'
-    
+        
     def doParse(self):
         self.args = self.parser.parse_args()
        
@@ -800,35 +809,78 @@ class Args:
             self.configFile = None
             fileValues = None
             
-        self.values['configFile'] = self.configFile
+        self.arglist['configFile'].value = self.configFile
         
-        for key in self.values:
-            
+        for key, arg in self.arglist.items():
             if (key != 'configFile'):
-                val = fileValues.get(key,self.defaults[key]) if fileValues else None
+                val = fileValues.get(key,arg.default) if fileValues else None
                 
                 if (hasattr(self.args,key) and getattr(self.args,key)):
                     val = getattr(self.args,key)
-                    
-                self.values[key] = val
+                
+                if (arg.typedescr == 'int') and val:
+                    arg.value = int(val)
+                elif (arg.typedescr == 'list') and val:
+                    arg.value = list(map(deNormalize,  val.split(',')))
+                else:
+                    arg.value = val
         
         if self.getValue('Verbose'):
-            print("\n\nBuildIndex.py", self.help)
-            for key in self.values:
-                print(self.getHelp(key))
-            print('\n\n')
-
+            self.Verbose()
+            
     def getValue(self, key):
-        if key in self.values:
-            return self.values[key]
+        if key in self.arglist:
+            return self.arglist[key].value
         return None
     
-    def getHelp(self, key):
-        if key in self.helpers:
-            return key + '  : "' + str(self.values[key]) + '" : default="' + str(self.defaults[key]) + '" ' + self.helpers[key]
-        return ''
+    def Verbose(self):
+        print("\n\nBuildIndex.py", self.help)
+        for key,arg in self.arglist:
+            print(arg.getHelp())
+        print('\n\n')
+        
+    def LockConfig(self, field):
+        lockfile = self.getValue(field) + '.lock'
 
-    
+        for i in range(0,20):
+            with open(lockfile, 'x') as myFile:
+                content = {}
+                content['date']= datetime.datetime.now().ctime()
+                content['pid'] = os.getpid()
+                json.dump( content, myFile)
+                return True
+
+            print("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
+            time.sleep(1)
+
+        #20 seconds elapsed, no unlock
+        #Kill the process
+        with open(lockfile,"r") as reading:
+            vals = json.load(reading)
+            pid = vals['pid']
+            print('WARNING: PID ',pid, 'is blocked, Aborting it')
+            ### os.kill(pid, signal.SIGKILL)
+            sys.exit(1)
+            return False
+        # BUG here, should be an error lock file unaavailable 
+            
+    def UnlockConfig(self, field):
+        lockfile = self.getValue(field) + '.lock'
+        os.unlink(lockfile)
+
+
+    def DumpConfig(self,field, comment=''):
+        filename = self.getValue(field) + '.conf'
+        with open(filename, 'w') as myFile:
+            print(comment, file=myFile)
+            print('[BuildIndex]', file=myFile)
+        
+            print('Date= ', datetime.datetime.now().ctime(), file=myFile)
+            for key,arg in self.arglist.items():
+                print(arg.getConfig(),file=myFile)
+            
+                
+        
 #--------------------------------------------------------------
 #   Main
 #--------------------------------------------------------------
@@ -841,40 +893,36 @@ if __name__ == "__main__":
     # then args are parsed in the order they appear in the commandline
     
     
-    parser = Args('Build an index epub from Calibre Database.')
+    parser = ArgsList('Build an index epub from Calibre Database.')
     
-    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: none)')
+    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: none)', specific = True, typedescr = 'int')
     parser.addArg('URL','https://www.mysite.com/ebooks/', 'Calisson web site URL'),
     parser.addArg('Cover','_Resources/Library.jpg', 'Book cover Image'),
     parser.addArg('Database','metadata.db', 'the Calibre datapath'),
     parser.addArg('Filebase','.','the path to the Calibre files')
-    parser.addArg('EpubIndex','index.epub','basename of generated epub')
+    parser.addArg('EpubIndex','index.epub','basename of generated epub', specific = True)
     parser.addArg('Verbose',False,'Print this Help')
-    parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed')
-    parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed')
+    parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', specific = True, typedescr = 'list')
+    parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', specific = True, typedescr = 'list')
     
     parser.doParse()
-    onlySubjects = None
-    if (parser.getValue('onlySubjects')):
-        onlySubjects = list(map(deNormalize,  parser.getValue('onlySubjects').split(',')))
-        
-    exclSubjects = None
-    if (parser.getValue('avoidSubjects')):
-        exclSubjects = list(map(deNormalize,  parser.getValue('avoidSubjects').split(',')))
-       
+    parser.LockConfig('EpubIndex')
+    parser.DumpConfig('EpubIndex', '# Index configuration file for Calisson')
     
-    
+    CheckPip()
+    Image = ImportModule('PIL.Image', "defaulting to ImageMagic")
+    url_normalize = CheckModule('url_normalize')
+
     
     myLibrary = Library(parser.getValue('URL'),
                         parser.getValue('Cover'),
                         parser.getValue('Database'),
                         parser.getValue('Filebase'),
-                        onlyTags = onlySubjects,
-                        excludedTags = exclSubjects)
+                        onlyTags = parser.getValue('onlySubjects'),
+                        excludedTags = parser.getValue('avoidSubjects'))
     
-    maxAuthors = None
-    if (parser.getValue('MaxAuthors')):
-        maxAuthors = int(parser.getValue('MaxAuthors'))
-    myLibrary.Build(parser.getValue('EpubIndex'), maxAuthors)
+    myLibrary.Build(parser.getValue('EpubIndex'), parser.getValue('MaxAuthors'))
+
+    parser.UnlockConfig('EpubIndex')
     
                 

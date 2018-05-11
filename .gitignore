@@ -1,5 +1,7 @@
 BuildIndex/check.py
 BuildIndex/*.epub
+BuildIndex/*.lock
+*.URL
 Install
 Test
 

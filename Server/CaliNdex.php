@@ -1,37 +1,43 @@
-<?php
+ <?php
+ 
+  $possible_height = array(32, 45, 68, 100, 500, 'All');
+  $database= "metadata.db";
+  $css= "_Resources/style.css";
+  $PageUp = "_Resources/PageUp.png";
+  $PageDown = "_Resources/PageDown.png";
+  $Download = "_Resources/Download.png";
+   
+  $xml=simplexml_load_file("CaliNdex.ini");
+  if ($xml){
+    
+    $database = $xml->database;
+    $possible_height = explode(',',$xml->height );
+    $PageUp = $xml->pageup;
+    $PageDown = $xml->pagedown;
+    $Download = $xml->download;
+    $css = $xml->css;
+  } else {
+    echo "<H1>ERROR: Database $database cannot be read</H1>\n";
+  }
+  $height = $possible_height[0];
+  $URL= basename(__FILE__);
 
   function PrintPageStart(){
+    global $css;
+    
     echo '<!DOCTYPE html>'."\n";
     echo '<html><head>'."\n";
     echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'."\n";
     echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
     echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'."\n";
     echo '<head>'."\n";
-    echo '  <link rel="stylesheet" href="$css">'."\n";
+    echo '  <link rel="stylesheet" href="'.$css.'">'."\n";
     echo '</head>'."\n";
     echo '<title>ebooks index </title>'."\n";
     echo '<BODY>'."\n";
   }
 
-  
-  $possible_height = array(32, 45, 68, 100, 500, 'All');
-  $database= "metadata.db";
-  $css= "_Resources/style.css";
-  $PageUp = "_Resources/PageUp.png";
-  $PageDown = "_Resources/PageDown.png"
-  $Download = "_Resources/Download.png"
-  
-  $xml=simplexml_load_file("index.ini");
-  if ($xml){
-    $database = $xml['database'];
-    $height = explode(',',$xml['height'] );
-    $PageUp = $xml['pageup'];
-    $PageDown = $xml['pagedown'];
-    $Download = $xml['download'];
-  }
-  $height = $possible_height[0];
-  $URL= __FILE__;
-  
+
   function describeTable($name,$conn){
       
         $q = "SELECT * from ". $name;
@@ -45,14 +51,16 @@
         echo "End of Table(".$name.")<br>\n";
   }
   
-  
+ 
   function CreateTmpFile(){
     $today = date("Y-m-d-H-i-s"); 
     $Filename="books_$today.zip";
     return ($Filename);
   }
   
-  
+   // ----------------------------------------------------
+   // ------------------ When request is a POST download
+   
   function ExecuteDownload($myList){
       $zip = new ZipArchive();
       $thisdir = getcwd();
@@ -97,7 +105,9 @@
   }
   
 
-  
+  // ----------------------------------------------------
+  // ------------------ When request is a GET bulk
+
   function BuildBulkRequest($conn, $author, $serie){
       $q = "SELECT aut.sort AS author_name ";
       $q = $q . "   , b.path || '/' || epub.name || '.epub' AS epub_URL ";
@@ -139,6 +149,9 @@
       ExecuteDownload($myList);
    }
    
+  // ----------------------------------------------------
+  // ------------------ When request is the default, ie. a GET
+
    
     //Get at most $query_limit Rows, starting at $Offset
     // with Author == $Author [To Do]
@@ -220,7 +233,7 @@
     // height= max number of books, or 'All'
     // letter=first letter to start with
     
-    function PrintOnePage($conn){
+  function PrintOnePage($conn){
       global $possible_height;
       global $height;
       global $URL, $PageDown, $PageUp, $Download;
@@ -272,7 +285,7 @@
           echo BuildHREF($query_tag,$query_start,$h,$query_letter,$h, $class);
           echo " </TD>\n";
         }
-        echo "<TD  class=pages> <A HREF='$URL?tag=$query_tag&start=$next&height=$query_limit&letter=$query_letter'> <IMG src='_$PageUp' height=40px> </A></TD>\n";
+        echo "<TD  class=pages> <A HREF='$URL?tag=$query_tag&start=$next&height=$query_limit&letter=$query_letter'> <IMG src='$PageUp' height=40px> </A></TD>\n";
         
         echo "<TD  class=pages> ";
         echo "<form method='POST' action='$URL'>";
@@ -383,29 +396,33 @@
       $result->finalize();
       $conn->close();
       return $ActuallyPrinted;
-    }
+  } // PrintOnePage
     
-   
+  
+  // ---------------------------------------------------------------------
+  // 'Main()'
+  // ---------------------------------------------------------------------
+  
+  
     
-    $conn = new SQLite3($database,SQLITE3_OPEN_READONLY);
-    if ($conn->connect_error) {
-        echo "Connection failed: " . $conn->connect_error . "<br>\n";
-        die("Connection failed: " . $conn->connect_error . "<br>\n");
-    } 
-    //var_dump( $conn);
-   
+  $conn = new SQLite3($database,SQLITE3_OPEN_READONLY);
+  if ($conn->connect_error) {
+      echo "Connection failed: " . $conn->connect_error . "<br>\n";
+      die("Connection failed: " . $conn->connect_error . "<br>\n");
+  } 
+  
     
-    // ---------------------- Downloading
-    if (isset($_POST['download']) || isset($_POST['download_x'])|| isset($_POST['download_y'])){
-      ManageDownload();
-    }
-    elseif (isset($_GET['bulk'])) {
-      ManageBulk($conn);
-    }
-    else {
-      PrintOnePage($conn);
-    }
-      
+  // ---------------------- Downloading
+  if (isset($_POST['download']) || isset($_POST['download_x'])|| isset($_POST['download_y'])){
+    ManageDownload();
+  }
+  elseif (isset($_GET['bulk'])) {
+    ManageBulk($conn);
+  }
+  else {
+    PrintOnePage($conn);
+  }
+    
       
    // Cf    calibre/resources/metadata_sqlite.sql
 

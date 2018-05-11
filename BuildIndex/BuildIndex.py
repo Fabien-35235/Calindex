@@ -21,7 +21,7 @@ DocString = """ An addition to Calibre (https://calibre-ebook.com/)
      URL= the Base URL of your server, defaults to https://www.mysite.com/ebooks/
      Cover= the picture to use as a cover for the index, defaults to _Resources/Library.jpg
      Database = The file that holds the Calibre Database, defaults to metadata.db
-     EpubIndex = The name of the index file to generate, defalts to index.epub
+     EpubIndex = The name of the index file to generate, defaults to index.epub
   2) run BuildIndex.py
   3) read the generated index.epup
   
@@ -763,12 +763,11 @@ class Library:
 
 
 class Arg:
-    def __init__(self, key,  defaultVal = None, helper = None, specific = False, typedescr = None):
+    def __init__(self, key,  defaultVal = None, helper = None, typedescr = None):
         self.key = key
         self.default = defaultVal
         self.value = None
         self.helpers= helper
-        self.specific = specific
         self.typedescr = typedescr
  
     def getHelp(self):
@@ -776,26 +775,37 @@ class Arg:
         
     def getConfig(self):
         return self.key + ' = ' + str(self.value)
+
+def isProcessRunning(process_id):
+    pass
+    try:
+        os.kill(process_id, 0)
+        return True
+    except OSError:
+        return False
+    
+
         
 class ArgsList:
     def __init__(self, helper):
         self.help = helper
         self.arglist = {}
         self.parser = argparse.ArgumentParser(description=helper)
+        self.containedInConfig = True #All meaningful configurations are contained in the config file,
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
         
         self.config = configparser.ConfigParser()
 
         
-    def addArg(self, key, defaultVal = None, helper = None, specific = False, typedescr=None):
-        self.arglist[key] = Arg(key, defaultVal, helper,specific=specific, typedescr=typedescr)
+    def addArg(self, key, defaultVal = None, helper = None,  typedescr=None):
+        self.arglist[key] = Arg(key, defaultVal, helper, typedescr=typedescr)
         self.parser.add_argument('--'+key, dest=key, action='store', default=None, help=helper)
         self.configFile = 'BuildIndex.ini'
         
     def doParse(self):
         self.args = self.parser.parse_args()
        
-       #self.configFile has already a default value
+        #self.configFile has already a default value
         if (self.args.configFile and os.path.isfile( self.args.configFile)):
             self.configFile = self.args.configFile
             
@@ -808,6 +818,7 @@ class ArgsList:
             print("ERROR : configFile ",self.configFile,"does NOT exist" )
             self.configFile = None
             fileValues = None
+            self.containedInConfig = False
             
         self.arglist['configFile'].value = self.configFile
         
@@ -817,6 +828,8 @@ class ArgsList:
                 
                 if (hasattr(self.args,key) and getattr(self.args,key)):
                     val = getattr(self.args,key)
+                    if (key != 'Verbose'):
+                        self.containedInConfig = False
                 
                 if (arg.typedescr == 'int') and val:
                     arg.value = int(val)
@@ -835,51 +848,77 @@ class ArgsList:
     
     def Verbose(self):
         print("\n\nBuildIndex.py", self.help)
-        for key,arg in self.arglist:
+        for key,arg in self.arglist.items():
             print(arg.getHelp())
         print('\n\n')
-        
-    def LockConfig(self, field):
-        lockfile = self.getValue(field) + '.lock'
-
-        for i in range(0,20):
-            with open(lockfile, 'x') as myFile:
+    
+    def createLock(self, lockfile):
+        if (os.path.isfile(lockfile)):
+            os.remove(lockfile)
+        with open(lockfile, 'x') as myFile:
                 content = {}
                 content['date']= datetime.datetime.now().ctime()
                 content['pid'] = os.getpid()
                 json.dump( content, myFile)
-                return True
+        
+    
+    def LockConfig(self, field):
 
-            print("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
-            time.sleep(1)
+        lockfile = self.getValue(field) + '.lock'
+        print("Locking ", lockfile)
+        if (os.path.isfile(lockfile)):
+            with open(lockfile,"r") as reading:
+                vals = json.load(reading)
+                pid = vals['pid']
+                
+            print('WARNING: PID ',pid, ' has locked the epub')
+            for i in range(0,20):
+                foo = isProcessRunning(pid)
+                if (foo == True):
+                    print("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
+                    time.sleep(1)
+                else:
+                    print('WARNING: PID ',pid, ' has stopped abnormally') 
+                    return self.createLock(lockfile)
+                     
+            print("WARNING: PID ",pid, ' is probably blocked')
+            exit(-1)
+            
+        return self.createLock(lockfile)    
+       
+            
 
         #20 seconds elapsed, no unlock
         #Kill the process
-        with open(lockfile,"r") as reading:
-            vals = json.load(reading)
-            pid = vals['pid']
-            print('WARNING: PID ',pid, 'is blocked, Aborting it')
-            ### os.kill(pid, signal.SIGKILL)
-            sys.exit(1)
-            return False
-        # BUG here, should be an error lock file unaavailable 
+       
+        # BUG here, should be an error lock file unavailable 
             
     def UnlockConfig(self, field):
         lockfile = self.getValue(field) + '.lock'
         os.unlink(lockfile)
+        print("INFO: unlocked ", lockfile)
 
 
-    def DumpConfig(self,field, comment=''):
-        filename = self.getValue(field) + '.conf'
+    def DumpConfig(self, field, comment=''):
+        if (self.containedInConfig):
+            #dumping a new config file is useless, because everything is contained in the initial config file
+            print("INFO: The information about the .epub is entirely contained in the config file\n")
+            return
+        
+        print("INFO: generating new config file\n")
+        filename = self.getValue(field) + '.ini'
         with open(filename, 'w') as myFile:
             print(comment, file=myFile)
-            print('[BuildIndex]', file=myFile)
-        
-            print('Date= ', datetime.datetime.now().ctime(), file=myFile)
+            print('[BuildIndex]', file=myFile)      
+           
             for key,arg in self.arglist.items():
-                print(arg.getConfig(),file=myFile)
+                if (key != 'configFile'):
+                    print(arg.getConfig(),file=myFile)
             
-                
+            # 'authors','number of authors';
+            # 'books','number of books';
+            # size is directly readfrom the epub file
+            # date is indicated by the last modification tiùme of the file        
         
 #--------------------------------------------------------------
 #   Main
@@ -895,19 +934,19 @@ if __name__ == "__main__":
     
     parser = ArgsList('Build an index epub from Calibre Database.')
     
-    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: none)', specific = True, typedescr = 'int')
+    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: none)',  typedescr = 'int')
     parser.addArg('URL','https://www.mysite.com/ebooks/', 'Calisson web site URL'),
     parser.addArg('Cover','_Resources/Library.jpg', 'Book cover Image'),
     parser.addArg('Database','metadata.db', 'the Calibre datapath'),
     parser.addArg('Filebase','.','the path to the Calibre files')
-    parser.addArg('EpubIndex','index.epub','basename of generated epub', specific = True)
+    parser.addArg('EpubIndex','index.epub','basename of generated epub')
     parser.addArg('Verbose',False,'Print this Help')
-    parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', specific = True, typedescr = 'list')
-    parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', specific = True, typedescr = 'list')
+    parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', typedescr = 'list')
+    parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
     
     parser.doParse()
     parser.LockConfig('EpubIndex')
-    parser.DumpConfig('EpubIndex', '# Index configuration file for Calisson')
+   
     
     CheckPip()
     Image = ImportModule('PIL.Image', "defaulting to ImageMagic")
@@ -922,7 +961,8 @@ if __name__ == "__main__":
                         excludedTags = parser.getValue('avoidSubjects'))
     
     myLibrary.Build(parser.getValue('EpubIndex'), parser.getValue('MaxAuthors'))
-
+    
+    parser.DumpConfig('EpubIndex', '# Index configuration file for Calisson')
     parser.UnlockConfig('EpubIndex')
     
                 

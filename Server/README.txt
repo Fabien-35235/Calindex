@@ -1,3 +1,14 @@
+ 
+--------------------------------------------------------------
+- Server : the Apache PHP etc service
+--------------------------------------------------------------
+
+--------------------------------------------------------------
+CaliNdex.php
+
+Reads its configuration in CaliNdex.ini
+
+Displays the main UI
 
 --------------------------------------------------------------
 BuildIndex.php
@@ -9,7 +20,7 @@ Reads or Generates an epub index of some books, serves it.
 Parameters:
 	&name=basename	the name of the generated index
 	&onlySubjects = (a list of subjects, separated by ',')
-        &avoidSujects = (a list of subjects, separated by ',')
+    &avoidSujects = (a list of subjects, separated by ',')
 
 The BuildIndex.py script is used to perform the core work
 This script updates/creates the configuration file for each generated index
@@ -34,7 +45,7 @@ so that a second instance of BuildIndex will NOT run, ans will wait for the prev
 Communication between the PHP and the PY is based, as usual, on ?????? Python library
 
 --------------------------------------------------------------
-GetIndex.php
+QueryIndex.php
 
 Displays a page that allows the user to specify the index required
 

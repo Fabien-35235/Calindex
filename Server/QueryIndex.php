@@ -1,29 +1,30 @@
 <?php
-   echo("OK\n");
-   
+ 
   $possible_height = array(32, 45, 68, 100, 500, 'All');
   $database= "metadata.db";
   $css= "_Resources/style.css";
   $PageUp = "_Resources/PageUp.png";
   $PageDown = "_Resources/PageDown.png";
   $Download = "_Resources/Download.png";
+  $ConfigDir = "_Indexes";
    
   $xml=simplexml_load_file("CaliNdex.ini");
   if ($xml){
     
-    $database = $xml->database;
-    $possible_height = explode(',',$xml->height );
-    $PageUp = $xml->pageup;
-    $PageDown = $xml->pagedown;
-    $Download = $xml->download;
-    $css = $xml->css;
+    if (isset($xml->database)) {$database = $xml->database;}
+    if (isset($xml->height))   {$possible_height = explode(',',$xml->height );}
+    if (isset($xml->pageup))   {$PageUp = $xml->pageup;}
+    if (isset($xml->pagedown)) {$PageDown = $xml->pagedown;}
+    if (isset($xml->download)) {$Download = $xml->download;}
+    if (isset($xml->css))      {$css = $xml->css;}
+    if (isset($xml->indexes))  {$ConfigDir = $xml->indexes;}
+    
   } else {
     echo "<H1>ERROR: Database $database cannot be read</H1>\n";
   }
   $height = $possible_height[0];
   $URL= basename(__FILE__);
 
-  echo("OK\n");
  
   function PrintPageStart(){
     global $css;
@@ -36,13 +37,9 @@
     echo '<head>'."\n";
     echo "  <link rel='stylesheet' href='$css'>\n";
     echo '</head>'."\n";
-    echo '<title>ebooks index </title>'."\n";
+    echo '<title>ePub as an index </title>'."\n";
     echo '<BODY>'."\n";
   }
-
-
-
-
 
   // Configuration of each index file is stored in "$ConfigDir/filename.epub.conf"
   // syntax is:
@@ -53,110 +50,151 @@
   // MaxAuthors = None
   // URL = https://quickconnect.to/fabien35235/myebooks/
     
-  function GetConfig($Filename, $TagsList){
-    $res=array();
-    $f= fopen($Filename, "r");
-    $res->mode='None';
-    foreach ($TagsList as $t){
-        $res[$t]='No';
-    }    
-    while ($str = fgets($f)){
-        if (re.match($str, "/s*#")){
+   function GetConfig($Filename, $TagsList, $Name, $DatabaseDate){
+      $res=array();
+      $f= fopen($Filename, "r");
+      $res['mode']='None';
+      foreach ($TagsList as $t){
+         $res[$t]='No';
+      }
+      $res['Name'] = $Name;
+      
+      while ($str = fgets($f)){
+         if (preg_match("/\s*#/", $str)){
             continue;
-        }
-        if (re.match($str, "(\w+) *= *(.*)$")){
-            $res[re.group(1)]= re.group(2);
-            if ((re.group(1) === 'onlySubjects') or (re.group(1) ==='avoidSubjects')){
-                $res['mode']= re.group(1);
-                $tags = explode(',', re.group(1));
+         }
+         if (1 === preg_match("/(\w+) *= *(.*)$/",$str,$groups)){
+            //echo ("Found "); print_r($groups[1]); echo (" = "); print_r( $groups[2]); echo("<br>\n");
+            $val = preg_replace("/(\n|\r|\f)/","",$groups[2]);
+            $res[$groups[1]]=$val ;
+            if (($groups[1] === 'onlySubjects') or ($groups[1] ==='avoidSubjects')){
+                $res['mode']= $groups[1];
+                //echo ("Found($groups[1])=$groups[2]");
+                $tags = explode(',', $val);
                 foreach ($tags as $t){
-                    $res[$t]='Yes' ;
-                }
+                     $t = preg_replace("/\%%20/"," ",$t); // Surprising, but because % has to be doubled in the .ini file due to python libs.     
+                     $res[$t]='Yes' ;
+                     //echo("TAG '$t'\n");
+               }
             }
-            if (re.group(1) === 'Date'){
-                $res['Date'] = date.parse($res['Date']);            
-            }
-        }
-    }
+            //if ($groups[1] === 'Date'){
+            //    $res['Date'] = date_parse($res['Date']);            
+            //}
+         }
+      }
     
-    fclose($f);
-    return ($res);
-  }
-   ?>
+      fclose($f);
+      // now, let's find the date and size of the epub
+      $EpubFile = $res['EpubIndex'];
+      $stats = stat($EpubFile); 
+      if (isset($stats)){
+         $res['Date'] = date("d/m/Y H:i:s",$stats['mtime']);
+         $res['Size'] = sprintf("%2.2f MB",intval($stats['size'])/(1024*1024));
+         $res['uptodate'] = ($stats['mtime'] >= $DatabaseDate) ? 'Yes' : 'No';
+         //-------- TODO:should also find the number of ebooks and of authors.
+      } else {
+         $res['Date'] =  '?';
+         $res['Size'] = '?';
+         $res['uptodate'] = 'No';
+      }
+      //echo("GetConfig($Filename,$EpubFile)");
+      //print_r($res);
+      return ($res);
+   }
+   
    
   function GetConfigValue($AllConfs, $conf, $field){
-      return (isset($AllConfs[$conf], $AllConfs[$conf][$field]) ? $AllConfs[$conf][$field] : ''); 
+      //echo ("GetConfigValue($conf, $field)\n");
+     
+      return (isset($AllConfs[$conf], $AllConfs[$conf][$field]) ? $AllConfs[$conf][$field] : '???'); 
   }
     
-  function GetAllConfigs($ConfigDir, $TagsList){
- 
+   function GetAllConfigs($ConfigDir, $TagsList, $DatabaseDate){
+      $res = array();
       $dir = opendir($ConfigDir);
-      $ls = readdir($dir);
-      $res = [];
-      foreach ($ls as $f){
-          if (preg_match($f,"(\w+)\.epub.conf"),$groups){
-              $name = $groups[1];
-              $res[$name] = GetConfig($f, $TagsList);
+      
+      while (false !== ($f = readdir($dir))) {
+          //echo "GetAllConfigs($ConfigDir/$f)\n";
+         
+          if (preg_match("/(\w+)\.ini/",$f, $matches) === 1){
+              $res[$matches[1]] = GetConfig("$ConfigDir/$f", $TagsList, $matches[1], $DatabaseDate);
           }
       }
-      return $res
+      closedir($dir);
+      return $res;
   }
+    
           
 
-  function PrintOneField($AllConfs, $ConfigList, $Field ){
+
+   function PrintOneTag($AllConfs, $ConfigList, $Field ){
       echo "<tr><td>$Field</td>";
       foreach ($ConfigList as $conf){
-          echo "<td>" + GetConfigValue($AllConfs, $Conf, $Field) + "</td>";
+          echo "<td>" . GetConfigValue($AllConfs, $conf, $Field) . "</td>";
       }
-      echo "<td> </td>";
-      echo '</tr>\n';
-  }
-
-  function PrintOneTag($AllConfs, $Conf, $Field ){
-      echo "<tr><td>$Field</td>";
+      echo "<td> <input type='checkbox' name='$Field'></td>";
+      echo "</tr>\n";
+   }
+    
+   function PrintOneField($AllConfs, $ConfigList, $Field , $TagName, $Default='N/A'){
+      echo "<tr><td>$TagName</td>\n";
       foreach ($ConfigList as $conf){
-          echo "<td>" + GetConfigValue($AllConfs, $conf, $Field) + "</td>";
+          echo "<td>" . GetConfigValue($AllConfs, $conf, $Field) . "</td>";
       }
-      echo "<td> <input type='checkbox'></td>";
-      echo '</tr>\n';
+      echo "<td>$Default</td>";
+      echo "</tr>\n";
+   }
+   
+   function Execute($ConfigDir, $tagsList, $DatabaseDate){
+      
+      $AllConfs = GetAllConfigs($ConfigDir, $tagsList, $DatabaseDate);
+      $ConfigList = array_keys($AllConfs);  // the list of .conf files
+      PrintPageStart();
+      echo "<h1>Index of books as a ePub</h1>\n";
+      echo "<p>The date of the database is " . date("d/m/Y H:i:s",$DatabaseDate) . "</p>\n";
+      echo "<p>Please chose a pre-existing index, or create your own</p>\n";
+      echo "<p>NB: if an index is marked NOT up to date, it will be rebuilt before download<p>\n";
+      echo "<form method='GET' action='BuildIndex.php'>\n";
+      echo "<table>\n";
+
+      PrintOneField($AllConfs, $ConfigList, 'Name' , 'Name','Build my own');
+      $InputField = "<input type='text' name='EpubIndex' value = 'index-". date("Y-m-d_H-i-s"). ".epub' maxLength='32'>";
+      PrintOneField($AllConfs, $ConfigList, 'EpubIndex' , 'File', $InputField);
+    
+    
+      echo "<tr><td>Tags</td>";
+      foreach ($ConfigList as $conf){
+         echo "<td></td>";
+      }
+      echo ("<td></td></tr>\n");
+      PrintOneField($AllConfs, $ConfigList,'mode','Mode','avoidSubject');
+      foreach ($tagsList as $tag){
+         PrintOneTag($AllConfs, $ConfigList, $tag);
+      }
+
+      //PrintOneField($AllConfs, $ConfigList,'authors','number of authors');
+      //PrintOneField($AllConfs, $ConfigList,'books','number of books');
+      PrintOneField($AllConfs, $ConfigList,'Size','size of the epub');
+      PrintOneField($AllConfs, $ConfigList,'Date', 'Creation Date');
+      
+      PrintOneField($AllConfs, $ConfigList,'uptodate','Up to date'); //-------------- BUG here, must be computed
+      
+      echo '<tr><td>Select this index</td>';
+      foreach ($ConfigList as $conf){
+         if (GetConfigValue($AllConfs, $conf,'uptodate') == 'Yes'){
+            echo '<td><A href="'.GetConfigValue($AllConfs, $conf, 'EpubIndex') . '">Download</A></td>';
+         } else {
+            echo '<td><A href="BuildIndex.php?configFile=' . GetConfigValue($AllConfs, $conf, 'Name') . '.ini';
+            echo '&EpubIndex=' . GetConfigValue($AllConfs, $conf, 'EpubIndex') ;
+            echo '">DOWNLOAD</A></td>';
+         }
+      }  
+      echo "<td><input type=submit value='Download'></td></tr>";
+      echo "</table>\n";
+      echo "</form>\n";
   }
-    
   
-  function Execute($ConfigDir, $tagsList){
-    $AllConfs = GetAllConfigs($ConfigDir, $tagsList);
-    $ConfigList = keys($AllConfs)
-    PrintPageStart();
-    
-    echo "<p>Please chose a pre-existing index, or create your own</p>\n"
-
-  
-    echo "<table>\n"
-
-    PrintOneField('Name', 'name', $ConfigList);
-    
-    echo "<tr><td>Tags</td>";
-        foreach ($ConfigList as $conf){
-            echo "<td></td>";
-        }
-        echo ("<td></td></tr>\n");
-    
-    foreach ($tagsList as $tag){
-        PrintOneTag($ConfigList, $tag);
-    }
-
-    PrintOneField('number of authors', 'authors', $ConfigList);
-    PrintOneField('number of books', 'books', $ConfigList);
-    PrintOneField('size of the epub', 'size', $ConfigList);
-    PrintOneField('Creation Date', 'date', $CondigList);
-    PrintOneField('Up to date', 'uptodate', $ConfigList);
-    echo '<tr><td>Select this index</td>'
-        foreach ($ConfigList as $conf){
-            echo '<td><A href="BuildIndex.php?name=' + GetConfigValue($conf, 'name') + '">DOWNLOAD</A></td>';
-        }
-        echo "<td><input type=submit></td></tr>\n";
-  }
-  
-  
+   
   function BuildTagsRequest($conn){
         $q = "SELECT t.name AS tag_name FROM tags t ";
         $q = $q . " ORDER BY tag_name";
@@ -166,6 +204,10 @@
       
   }
 
+  function GetDateOfFile($Filename){
+      $stats = stat($Filename);
+      return $stats['mtime'];
+  }
 
   $conn = new SQLite3($database,SQLITE3_OPEN_READONLY);
   if ($conn->connect_error) {
@@ -176,15 +218,13 @@
  
     
   $result = BuildTagsRequest($conn);
-  $myList = array();
-  //echo ("Manage Bulk(" . $query_author . "," . $query_serie .")");
-  //var_dump($result);
+  $myTagsList = array();
     
   while ($row = $result->fetchArray()){
-      //echo ("-->" . $row['epub_URL']."<br>\n");
-      array_push($myList, $row['tag_name']);
+      //echo ("-->" . $row['tag_name']."<br>\n");
+      array_push($myTagsList, $row['tag_name']);
   }
-  Execute($myList);
+  Execute($ConfigDir, $myTagsList, GetDateOfFile($database));
    
    
 ?>  

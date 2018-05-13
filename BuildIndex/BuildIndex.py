@@ -4,6 +4,10 @@
 #pip install Pillow   #This is an option, if PIL is not installed, will use ImageMagic 
 #pip install url-normalize
 
+#sudo chgrp http _Indexes/
+#sudo chown http _Indexes/
+#   avec FileStation, donner au group http les doits de lectue et écriture sur _Indexes
+
 #----------------------------------------------------------------------
 # BuildIndex.py
 #----------------------------------------------------------------------
@@ -13,7 +17,7 @@ DocString = """ An addition to Calibre (https://calibre-ebook.com/)
 
  Additional features compared to the equivalent fonction embeded in Calibre:
     * individual Ebooks can be downloaded from the index file
-    * all ebooks from the same serie can be downloaded within a single zip
+    * all ebooks from the same serie to be downloaded within a single zip
     * runs on a Synology NAS
 
  How to use it:
@@ -64,25 +68,79 @@ import configparser
 import signal
 import json
 
+
+class myLogger:
+    """ Class for print and log file """
+    def __init__(self):
+      
+        self.logfile = None      
+        self.filehandle = None
+        self.silent = None
+        self.buffer = ''
+        self.print("--- Start " + datetime.datetime.now().ctime())
+
+    def startLog(self, silent, dirName):
+        print("startLog", silent, dirName)
+        self.logfile = dirName + "/BuildIndex-" + date.today().isoformat() + ".log"
+        self.filehandle = open(self.logfile, 'a', encoding='iso-8859-1', errors='replace')
+
+        if (self.silent == None) and (silent == False):
+            #Silent was not initiallized
+            print("--- Bufferred")
+            print(self.buffer)
+            print("--- end of Bufferred")
+            
+        if (self.silent == None) and (self.filehandle != None):
+            #Silent was not initiallized
+            print(self.buffer, file=self.filehandle, flush=True)           
+        
+        self.buffer = ''
+        self.silent = silent
+        
+        
+    def print(self, *args):
+        if (self.filehandle != None):
+            print(*args, file=self.filehandle, flush=True)
+#       truncated = list(map(lambda v:  str(str(v).encode(encoding='latin_1',errors='ignore')), args))
+        #print("Trunc", truncated)
+
+        if (self.silent == None):
+            #Not initialized, lets buffer
+            for arg in args:
+                self.buffer = self.buffer + ' ' + str(arg) +"\n"
+                
+        if (self.silent == False):
+            print(*args)
+    
+    def mustPrint(self, *args):
+        if (self.filehandle != None):
+            print(*args, file=self.filehandle, flush=True)
+        print(*args)
+
+print("Creating Logger " )        
+myLog = myLogger()
+print("Logger Created")
+
+
 #----------------------------------------------------------------------
 # EXTRA Module verifications
 #----------------------------------------------------------------------
 
 def CheckPip():
-    """#Check if Pip is installed. if not, installs it"""
+    """Check if Pip is installed. if not, installs it"""
     try:
         import pip 
-        print("pip is available")
+        myLog.print("pip is available")
         return
     except ImportError:
-        print("pip is NOT available")
+        myLog.print("pip is NOT available")
 
     #we assume curl is available, which is the standard on synology
     
     if (os.path.isfile("get-pip.py")):
-        print("  get-pip.py is available")
+        myLog.print("  get-pip.py is available")
     else:
-        print("  getting get-pip.py")
+        myLog.print("  getting get-pip.py")
         os.system("curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py")
     
     os.system("python3 get-pip.py --force-reinstall")
@@ -92,10 +150,10 @@ def CheckPip():
 def ImportModule(Descr, Err):
     try:  
         Mod = importlib.import_module(Descr)
-        print("Module ", Descr, " is available")
+        myLog.print("Module ", Descr, " is available")
         return Mod
     except ImportError:
-        print("Module ", Descr, " is NOT available ", Err)
+        myLog.print("Module ", Descr, " is NOT available ", Err)
         return None
 
 def CheckModule(Descr):
@@ -110,9 +168,9 @@ def CheckModule(Descr):
     if (Mod):
         return Mod
     
-    print(Descr," is NOT available after an attempt to install it via pip")
-    print("install it manually through the following command:")
-    print("python3 -m pip install " + Descr)
+    myLog.print(Descr," is NOT available after an attempt to install it via pip")
+    myLog.print("install it manually through the following command:")
+    myLog.print("python3 -m pip install " + Descr)
     sys.exit(0)
 
 
@@ -126,7 +184,7 @@ def Resize(inImage, outImage, width, height):
     else:
         # https://www.imagemagick.org/script/convert.php
         os.system('convert "'+ inImage + '" -resize '+ str(width)+"x"+str(height)+' -strip "' + outImage +'"')
-    #print('Resize("', inImage, '", "', outImage, '", "',width, 'x', height,")")
+    #myLog.print('Resize("', inImage, '", "', outImage, '", "',width, 'x', height,")")
    
     
 #----------------------------------------------------------------------
@@ -352,7 +410,7 @@ class Epub:
 #----------------------------------------------------------------------
 
 def Help():
-    print(DocString)
+    myLog.print(DocString)
 
 def clean(myString):
     res = re.sub('&lt;','<',myString)
@@ -405,7 +463,7 @@ class Book:
         self.author = myAuthor
         self.authorName = myAuthor.name
         self.title = Title
-        #print("Book(" + str(myAuthor.name) +","+ str(bookID)+","+  str(Title)+","+  str(Serie)+","+  str(Index)+","+  str(epub_URL) +","+  str(mobi_URL)+","+  str(tag_name) +")")
+        #myLog.print("Book(" + str(myAuthor.name) +","+ str(bookID)+","+  str(Title)+","+  str(Serie)+","+  str(Index)+","+  str(epub_URL) +","+  str(mobi_URL)+","+  str(tag_name) +")")
         self.name = self.title 
         self.subject=tag_name if tag_name else ''
         self.description= clean(Descr) if Descr else ''
@@ -427,7 +485,7 @@ class Book:
             self.group = self.subject
         self.sortname = str(self.group) + "_"+ str(self.index) + "_" + str(self.title)
         
-        #print("               "+ self.title+ " <"+ self.group + "> " + self.cover + " - " + self.epub)
+        #myLog.print("               "+ self.title+ " <"+ self.group + "> " + self.cover + " - " + self.epub)
 
  
     def __lt__(self, other):    
@@ -487,7 +545,7 @@ class Book:
             AuthorText += '<td><a href="' + NormalizeURL(myLibrary.BaseURL+myBook.epub) + '">Android (epub)</a></td>'
             myEpub = myLibrary.filebase + myBook.epub
             if (not os.path.isfile(myEpub)):
-                print("ERROR",myBook.author.name,':', shorttitle, ':', myEpub,' does NOT exist')
+                myLog.print("ERROR",myBook.author.name,':', shorttitle, ':', myEpub,' does NOT exist')
                 #sys.exit(0)
   
         else:
@@ -504,7 +562,7 @@ class Book:
         myCover = myLibrary.filebase + myBook.cover
         thumbnail = re.sub('cover','thumbnail',myCover)
         if (os.path.isfile(myCover) and not os.path.isfile(thumbnail)):
-            print(myBook.title,":",myBook.author.firstname + " " +myBook.author.lastname,": generating thumbnail")
+            myLog.print(myBook.title,":",myBook.author.firstname + " " +myBook.author.lastname,": generating thumbnail")
             Resize(myCover, thumbnail, 256, 256)
         
         if (os.path.isfile(  thumbnail)): 
@@ -531,7 +589,7 @@ class Author:
    
           
         # example: Balzac, Honore de
-        #print("Author:<",Name,">\n")
+        #myLog.print("Author:<",Name,">\n")
         m = re.match("([^ ,]+)([ ,]*)(.*)", Name)
         if m:
             self.lastname = m.group(1)
@@ -539,7 +597,7 @@ class Author:
             self.firstname = m.group(3)
             re.sub("_","",self.firstname)
             #self.name = self.firstname + " " + self.lastname
-            #print("Author:<",self.lastname,",",self.firstname,">\n")
+            #myLog.print("Author:<",self.lastname,",",self.firstname,">\n")
              
     def __repr__(self):
         return '{}: {} {}'.format(self.__class__.__name__,
@@ -653,11 +711,12 @@ class Library:
         curRow= cur.fetchone()
         curName=""
         curAuthor=None
-        #print(curRow.keys())
+        myLog.print(curRow.keys())
         while(curRow != None):
-            
+            #myLog.print("TEST",  curRow['author_name'])
+            #myLog.print("TEST", curRow['title'],  curRow['tag_name'])
             if (self.excluded(curRow['tag_name'])):
-                print("EXCLUDED", curRow['title'], curRow['tag_name'])
+                myLog.print("EXCLUDED", curRow['title'], curRow['tag_name'])
                 curRow= cur.fetchone()
                 continue
             
@@ -683,7 +742,7 @@ class Library:
             
         #self.allAuthors.sort(key=lambda x: x.name)
         for myAuthor in self.Authors:
-            print ("Author ",myAuthor.lastname,myAuthor.firstname)
+            myLog.print("Author ",myAuthor.lastname,myAuthor.firstname)
             
             
     def Build(self,Filename, maxAuthors):
@@ -793,6 +852,9 @@ class ArgsList:
         self.parser = argparse.ArgumentParser(description=helper)
         self.containedInConfig = True #All meaningful configurations are contained in the config file,
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
+        self.addArg('Dir','.','the path where all generated files are built, including logs')    
+        self.addArg('Verbose',False,'Print this Help')
+        self.addArg('Silent',False,'Does not print on STDOUT, only in log file')
         
         self.config = configparser.ConfigParser()
 
@@ -811,11 +873,11 @@ class ArgsList:
             
         if (os.path.isfile(self.configFile)):
             self.config.read(self.configFile,encoding='utf-8')
-            print("Read configuration file ",self.configFile)
+            myLog.print("Read configuration file ", self.configFile)
             fileValues = self.config['BuildIndex']
             
         else:
-            print("ERROR : configFile ",self.configFile,"does NOT exist" )
+            myLog.print("ERROR : configFile ",self.configFile,"does NOT exist" )
             self.configFile = None
             fileValues = None
             self.containedInConfig = False
@@ -840,50 +902,57 @@ class ArgsList:
         
         if self.getValue('Verbose'):
             self.Verbose()
-            
+
+        myLog.startLog(self.getValue('Silent'), self.getValue('Dir'))
+        
+        
     def getValue(self, key):
         if key in self.arglist:
             return self.arglist[key].value
         return None
     
     def Verbose(self):
-        print("\n\nBuildIndex.py", self.help)
+        myLog.print("\n\nBuildIndex.py", self.help)
         for key,arg in self.arglist.items():
-            print(arg.getHelp())
-        print('\n\n')
+            myLog.mustPrint(arg.getHelp())
+        myLog.print('\n\n')
     
     def createLock(self, lockfile):
         if (os.path.isfile(lockfile)):
             os.remove(lockfile)
-        with open(lockfile, 'x') as myFile:
+        try:
+            with open(lockfile, 'x') as myFile:
                 content = {}
                 content['date']= datetime.datetime.now().ctime()
                 content['pid'] = os.getpid()
                 json.dump( content, myFile)
-        
+            myLog.mustPrint("Locked ", lockfile)
+            return True
+        except OSError:
+            myLog.mustPrint("ERROR: Lock file  ", lockfile, " CANNOT BE CREATED")
+            return False
     
-    def LockConfig(self, field):
-
-        lockfile = self.getValue(field) + '.lock'
-        print("Locking ", lockfile)
+    def LockConfig(self, lockfile):
+        self.lockfile = lockfile
+        myLog.mustPrint("Locking ", lockfile)
         if (os.path.isfile(lockfile)):
             with open(lockfile,"r") as reading:
                 vals = json.load(reading)
                 pid = vals['pid']
                 
-            print('WARNING: PID ',pid, ' has locked the epub')
+            myLog.print('WARNING: PID ',pid, ' has locked the epub')
             for i in range(0,20):
                 foo = isProcessRunning(pid)
                 if (foo == True):
-                    print("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
+                    myLog.mustPrint("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
                     time.sleep(1)
                 else:
-                    print('WARNING: PID ',pid, ' has stopped abnormally') 
+                    myLog.mustPrint('WARNING: PID ',pid, ' has stopped abnormally') 
                     return self.createLock(lockfile)
                      
-            print("WARNING: PID ",pid, ' is probably blocked')
+            myLog.mustPrint("WARNING: PID ",pid, ' is probably blocked')
             exit(-1)
-            
+        myLog.mustPrint("Lock file ", lockfile, " does not exist")    
         return self.createLock(lockfile)    
        
             
@@ -893,20 +962,18 @@ class ArgsList:
        
         # BUG here, should be an error lock file unavailable 
             
-    def UnlockConfig(self, field):
-        lockfile = self.getValue(field) + '.lock'
-        os.unlink(lockfile)
-        print("INFO: unlocked ", lockfile)
+    def UnlockConfig(self):
+        os.unlink(self.lockfile)
+        myLog.mustPrint("INFO: unlocked ", self.lockfile)
 
 
-    def DumpConfig(self, field, comment=''):
+    def DumpConfig(self, filename, comment=''):
         if (self.containedInConfig):
             #dumping a new config file is useless, because everything is contained in the initial config file
-            print("INFO: The information about the .epub is entirely contained in the config file\n")
+            myLog.mustPrint("INFO: The information about the .epub is entirely contained in the config file\n")
             return
         
-        print("INFO: generating new config file\n")
-        filename = self.getValue(field) + '.ini'
+        myLog.mustPrint("INFO: generating new config file\n")
         with open(filename, 'w') as myFile:
             print(comment, file=myFile)
             print('[BuildIndex]', file=myFile)      
@@ -940,12 +1007,12 @@ if __name__ == "__main__":
     parser.addArg('Database','metadata.db', 'the Calibre datapath'),
     parser.addArg('Filebase','.','the path to the Calibre files')
     parser.addArg('EpubIndex','index.epub','basename of generated epub')
-    parser.addArg('Verbose',False,'Print this Help')
     parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', typedescr = 'list')
     parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
     
     parser.doParse()
-    parser.LockConfig('EpubIndex')
+    lockfile =  parser.getValue('Dir') + '/' + parser.getValue('EpubIndex') + '.lock'
+    parser.LockConfig(lockfile)
    
     
     CheckPip()
@@ -960,9 +1027,11 @@ if __name__ == "__main__":
                         onlyTags = parser.getValue('onlySubjects'),
                         excludedTags = parser.getValue('avoidSubjects'))
     
-    myLibrary.Build(parser.getValue('EpubIndex'), parser.getValue('MaxAuthors'))
+    libraryName = parser.getValue('Dir') + '/' + parser.getValue('EpubIndex')
+    myLibrary.Build(libraryName, parser.getValue('MaxAuthors'))
     
-    parser.DumpConfig('EpubIndex', '# Index configuration file for Calisson')
-    parser.UnlockConfig('EpubIndex')
+    iniFile = parser.getValue('Dir') + '/' + parser.getValue('EpubIndex') + '.ini'
+    parser.DumpConfig(iniFile, '# Index configuration file for Calisson')
+    parser.UnlockConfig()
     
                 

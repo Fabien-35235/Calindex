@@ -2,7 +2,7 @@
 
   //------------------------------------------------------------------------
   // Creates an index file, 
-  // then, downloads it
+  // then, downloads it thorugh a redirect
   //
   // instance 1: the config file exist
   // BuildIndex.php?configFile=index.ini&EpubIndex=index.epub
@@ -48,12 +48,44 @@
   // ---------------------------------------------------------------------
 
   if (isset($_GET['configFile'], $_GET['EpubIndex'] )) {
-    $myFile = "$ConfigDir/".$_GET['configFile'];
-    $myEpub = $_GET['EpubIndex']
-    $myCmd = "BuildIndex.py ".escapeshellarg("--configFile $myFile");
-    $ res = exec(myCmd);
-    header('Location: $myEpub'); 
+    $myConfig = "$ConfigDir/".$_GET['configFile'];
+    $myEpub = $_GET['EpubIndex'];
+    $myCmd = "python3"." ".escapeshellarg("/volume1/myebooks/BuildIndex.py");
+    $myCmd = $myCmd." ".escapeshellarg("--configFile $myConfig");
+    $myCmd = $myCmd." ".escapeshellarg("--Verbose")." ". escapeshellarg('t');
+    $myCmd = $myCmd." ".escapeshellarg("--Silent")." ". escapeshellarg('t');
+    $myCmd = $myCmd." ".escapeshellarg("--Dir")." ". escapeshellarg($ConfigDir);
+    $res = exec($myCmd, $retArr, $retVal);
+    header("Location: $ConfigDir/$myEpub"); 
+    die();
   }
-  
+  if (isset($_GET['EpubIndex'] )) {
+    $myEpub = $_GET['EpubIndex'];
+    $myArgs = "";
+   
+    $separator = '';
+    foreach($_GET as $key => $value) {
+      if ($key != 'EpubIndex'){
+        $myArgs = $myArgs . $separator . $key;
+        $separator = ',';
+      }
+    }
+    $myCmd = "python3"." ".escapeshellarg("/volume1/myebooks/BuildIndex.py");
+    $myCmd = $myCmd." ".escapeshellarg("--EpubIndex")." ". escapeshellarg($myEpub);
+    $myCmd = $myCmd." ".escapeshellarg("--avoidSubjects")." ". escapeshellarg($myArgs);
+    $myCmd = $myCmd." ".escapeshellarg("--Verbose")." ". escapeshellarg('t');
+    $myCmd = $myCmd." ".escapeshellarg("--Silent")." ". escapeshellarg('t');
+    $myCmd = $myCmd." ".escapeshellarg("--Dir")." ". escapeshellarg($ConfigDir);    
+    $res = exec($myCmd, $retArr, $retVal);
+    //echo("CMD = $myCmd");
+    //echo("<br>RetArray:</br>\n"); 
+    //foreach($retArr as $l){
+    //  echo("<br>$l</br>\n");
+    //}
+    //echo("<br>RetVal:"); echo($retVal);
+    //
+    header("Location: $ConfigDir/$myEpub"); 
+    die();
+  }
+  echo ("BUG");
 ?>
-

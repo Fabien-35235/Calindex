@@ -13,9 +13,11 @@ Displays the main UI
 --------------------------------------------------------------
 BuildIndex.php
 
-Reads the configuration in BuildIndex.conf
+Reads the configuration in CaliNdex.ini
 
-Reads or Generates an epub index of some books, serves it.
+Serves the epub index of some books.
+If the index is not available or is out of date,
+generates it from the corresponding configuration file
 
 Parameters:
 	&name=basename	the name of the generated index

@@ -1,28 +1,28 @@
 <?php
  
-  $possible_height = array(32, 45, 68, 100, 500, 'All');
-  $database= "metadata.db";
-  $css= "_Resources/style.css";
-  $PageUp = "_Resources/PageUp.png";
-  $PageDown = "_Resources/PageDown.png";
-  $Download = "_Resources/Download.png";
-  $ConfigDir = "_Indexes";
+ 
+   // Default values for variables in the configuration file
+   $ConfigDir = "_Indexes";
+   $css= "_Resources/style.css";
+   $database= "metadata.db";
+   $script='BuildIndex.py';
+   $logs= '_Indexes';
+  
+
    
-  $xml=simplexml_load_file("CaliNdex.ini");
-  if ($xml){
+   $xml=simplexml_load_file("CaliNdex.ini");
+   if ($xml){
     
-    if (isset($xml->database)) {$database = $xml->database;}
-    if (isset($xml->height))   {$possible_height = explode(',',$xml->height );}
-    if (isset($xml->pageup))   {$PageUp = $xml->pageup;}
-    if (isset($xml->pagedown)) {$PageDown = $xml->pagedown;}
-    if (isset($xml->download)) {$Download = $xml->download;}
-    if (isset($xml->css))      {$css = $xml->css;}
-    if (isset($xml->indexes))  {$ConfigDir = $xml->indexes;}
+      if (isset($xml->database)) {$database = $xml->database;}
+      if (isset($xml->download)) {$Download = $xml->download;}
+      if (isset($xml->css))      {$css = $xml->css;}
+      if (isset($xml->indexes))  {$ConfigDir = $xml->indexes;}
+      if (isset($xml->logs))     {$logs = $xml->logs;}
     
-  } else {
-    echo "<H1>ERROR: Database $database cannot be read</H1>\n";
-  }
-  $height = $possible_height[0];
+   } else {
+      echo "<H1>ERROR: Database $database cannot be read</H1>\n";
+   }
+ 
   $URL= basename(__FILE__);
 
  
@@ -116,7 +116,7 @@
       while (false !== ($f = readdir($dir))) {
           //echo "GetAllConfigs($ConfigDir/$f)\n";
          
-          if (preg_match("/(\w+)\.ini/",$f, $matches) === 1){
+          if (preg_match("/((\w|-)+)\.ini/",$f, $matches) === 1){
               $res[$matches[1]] = GetConfig("$ConfigDir/$f", $TagsList, $matches[1], $DatabaseDate);
           }
       }
@@ -132,7 +132,7 @@
       foreach ($ConfigList as $conf){
           echo "<td>" . GetConfigValue($AllConfs, $conf, $Field) . "</td>";
       }
-      echo "<td> <input type='checkbox' name='$Field'></td>";
+      echo "<td> <input type='checkbox' name='".urlencode($Field)."'></td>";
       echo "</tr>\n";
    }
     
@@ -143,6 +143,24 @@
       }
       echo "<td>$Default</td>";
       echo "</tr>\n";
+   }
+   
+   function IsAFreeName($AllConfs, $ConfigList, $name){
+      foreach ($ConfigList as $conf){
+         echo("CONF ($conf)");
+         if ($conf == $name){return False;}
+      }
+      return True;
+   }
+   
+   function GetFreeName($AllConfs, $ConfigList){
+      // returns the name of the first index in the form custom-%d which is not used
+      for($i=1;$i<100;$i++){
+         $name = "custom-$i";
+         if (IsAFreeName($AllConfs, $ConfigList, $name)) {return "$name.epub";}
+      }
+      echo "<H1>ERROR: No more free custom-INT.epub names</H1>";
+      return "index-". date("Y-m-d_H-i-s"). ".epub"; 
    }
    
    function Execute($ConfigDir, $tagsList, $DatabaseDate){
@@ -158,7 +176,8 @@
       echo "<table>\n";
 
       PrintOneField($AllConfs, $ConfigList, 'Name' , 'Name','Build my own');
-      $InputField = "<input type='text' name='EpubIndex' value = 'index-". date("Y-m-d_H-i-s"). ".epub' maxLength='32'>";
+      $NewEpub = $ConfigDir."/".GetFreeName($AllConfs, $ConfigList);
+      $InputField = "<input type='text' name='EpubIndex' value = '$NewEpub' maxLength='32'>";
       PrintOneField($AllConfs, $ConfigList, 'EpubIndex' , 'File', $InputField);
     
     
@@ -177,7 +196,7 @@
       PrintOneField($AllConfs, $ConfigList,'Size','size of the epub');
       PrintOneField($AllConfs, $ConfigList,'Date', 'Creation Date');
       
-      PrintOneField($AllConfs, $ConfigList,'uptodate','Up to date'); //-------------- BUG here, must be computed
+      PrintOneField($AllConfs, $ConfigList,'uptodate','Up to date'); 
       
       echo '<tr><td>Select this index</td>';
       foreach ($ConfigList as $conf){

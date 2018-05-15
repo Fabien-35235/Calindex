@@ -377,7 +377,9 @@ class Epub:
         ebookFile.writestr(self.contentdir +"/nav.xhtml", nav, zipfile.ZIP_DEFLATED)
         
         for chapter in self.chapters:
+           
             ebookFile.writestr(self.contentdir +"/"+chapter.filename, chapter.content+"</body></html>\n", zipfile.ZIP_DEFLATED)
+            
             
         for picture in self.pictures:    
             ebookFile.write(picture.real, self.contentdir +"/"+picture.internal)
@@ -422,7 +424,7 @@ def clean(myString):
 
 #cf https://www.w3schools.com/tags/ref_urlencode.asp
 def NormalizeURL(myString):
-    res = url_normalize.url_normalize(myString)
+    #res = url_normalize.url_normalize(myString)
     res = re.sub(',','%2C',myString)
     res = re.sub(" ",'%20',res) 
     res = re.sub("!",'%21',res)
@@ -434,6 +436,14 @@ def NormalizeURL(myString):
     res = re.sub("'",'%27',res)
     res = re.sub('\(','%28',res)
     res = re.sub('\)','%29',res)
+    res = re.sub('é','%'+'C3'+'%'+'A9',res)
+    res = re.sub('è','%C3%A8',res)
+    res = re.sub('à','%C3%A0', res)
+    #myLog.print("normalize(", myString,")=", res)
+    return res
+
+def SurNormalize(myString):
+    res = re.sub(' ','%%20',myString) #Specific to config files
     return res
 
 def deNormalize(myString):
@@ -593,9 +603,9 @@ class Author:
         m = re.match("([^ ,]+)([ ,]*)(.*)", Name)
         if m:
             self.lastname = m.group(1)
-            re.sub("_","",self.lastname)
+            self.lastname = re.sub("_","",self.lastname)
             self.firstname = m.group(3)
-            re.sub("_","",self.firstname)
+            self.firstname = re.sub("_","",self.firstname)
             #self.name = self.firstname + " " + self.lastname
             #myLog.print("Author:<",self.lastname,",",self.firstname,">\n")
              
@@ -711,12 +721,12 @@ class Library:
         curRow= cur.fetchone()
         curName=""
         curAuthor=None
-        myLog.print(curRow.keys())
+        #myLog.print(curRow.keys())
         while(curRow != None):
             #myLog.print("TEST",  curRow['author_name'])
             #myLog.print("TEST", curRow['title'],  curRow['tag_name'])
             if (self.excluded(curRow['tag_name'])):
-                myLog.print("EXCLUDED", curRow['title'], curRow['tag_name'])
+                #myLog.print("EXCLUDED", curRow['title'], curRow['tag_name'])
                 curRow= cur.fetchone()
                 continue
             
@@ -744,12 +754,14 @@ class Library:
         for myAuthor in self.Authors:
             myLog.print("Author ",myAuthor.lastname,myAuthor.firstname)
             
+        myLog.print("Author generation DONE")    
             
     def Build(self,Filename, maxAuthors):
         today = date.today().ctime()
+        #myLog.print("Starting to BUILD(", Filename,maxAuthors,')')   
         book = Epub('Bibliothèque ' + str(today), Filename, 'ID1234567890', 'fr')
       
-       
+        
         book.SetCover("cover.xhtml", "Cover", "bookCover.jpg", self.coverFile)
       
 
@@ -764,12 +776,13 @@ class Library:
         excludeURL = ''
         onlyURL = ''
         
+        
         if self.excludedTags:
             GlobIndex.content += '<br>Excluded tags: '
             excludeURL = '&avoidSubjects='
             for tag in self.excludedTags:
-                GlobIndex.content += tag + ' '
-                excludeURL += NormalizeURL(tag + ',')
+                GlobIndex.content += NormalizeURL(tag) + ' '
+                excludeURL += NormalizeURL(tag) + ','
             GlobIndex.content += '</br>'    
         
         if self.onlyTags :
@@ -780,7 +793,6 @@ class Library:
                 onlyURL += NormalizeURL(tag + ',')
             GlobIndex.content += '</br>'    
                 
-
                 
         GlobIndex.content += '<p style="text-align:center;"><a href="'+ NormalizeURL(self.BaseURL+'index.epub'+onlyURL+excludeURL) + '">Reload this index book</a></p>\n'
         
@@ -791,7 +803,7 @@ class Library:
         curAuthor = 0    
         for myAuthor in self.Authors:
             curAuthor += 1
-            #print ("Printing ",myAuthor.firstname,myAuthor.lastname )
+            #myLog.print ("Printing ",myAuthor.firstname,myAuthor.lastname )
             GlobIndex.content += myAuthor.BuildAuthorPage(self)
             if (maxAuthors and (curAuthor >= maxAuthors)):
                 break
@@ -799,7 +811,6 @@ class Library:
         book.AddChapter(book.coverChapter)
         
         book.AddChapter(GlobIndex)
- 
  
         for page in self.ListOfAuthorPages:
             book.AddChapter(page)
@@ -813,8 +824,10 @@ class Library:
             book.AddPicture(page)  
        
         GlobIndex.content += '</table>\n'
+        #myLog.print("End of BUILD")   
         # write to the file
         book.Generate()
+        #myLog.print("End of Generate")   
 
 #--------------------------------------------------------------
 #   Args library
@@ -829,11 +842,25 @@ class Arg:
         self.helpers= helper
         self.typedescr = typedescr
  
-    def getHelp(self):
-        return self.key + '  : "' + str(self.value) + '" : default="' + str(self.default) + '" ' + self.helpers
-        
+       
     def getConfig(self):
-        return self.key + ' = ' + str(self.value)
+        
+        line = self.key + ' = ' 
+        if (isinstance(self.value, list)):
+            first = True
+            for v in self.value:
+                if (first != True):
+                    line = line +','
+                first = False
+                line = line + SurNormalize(v)
+        else:
+            line = line + SurNormalize(str(self.value))   
+        return line
+
+    def getHelp(self):
+        return self.key + ' : default=' + str(self.default) + ' ' + self.helpers                       
+        #return self.getConfig() + ' : default=' + str(self.default) + ' ' + self.helpers     BUUUUUUUUUUUUUUUUUG 
+ 
 
 def isProcessRunning(process_id):
     pass
@@ -852,7 +879,7 @@ class ArgsList:
         self.parser = argparse.ArgumentParser(description=helper)
         self.containedInConfig = True #All meaningful configurations are contained in the config file,
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
-        self.addArg('Dir','.','the path where all generated files are built, including logs')    
+        self.addArg('Log','.','the path where logs are generated')    
         self.addArg('Verbose',False,'Print this Help')
         self.addArg('Silent',False,'Does not print on STDOUT, only in log file')
         
@@ -903,7 +930,7 @@ class ArgsList:
         if self.getValue('Verbose'):
             self.Verbose()
 
-        myLog.startLog(self.getValue('Silent'), self.getValue('Dir'))
+        myLog.startLog(self.getValue('Silent'), self.getValue('Log'))
         
         
     def getValue(self, key):
@@ -979,9 +1006,11 @@ class ArgsList:
             print('[BuildIndex]', file=myFile)      
            
             for key,arg in self.arglist.items():
+                #myLog.print("key", key, "value", arg.value)
                 if (key != 'configFile'):
-                    print(arg.getConfig(),file=myFile)
-            
+                    #myLog.print(arg.getConfig())
+                    print(arg.getConfig(), file=myFile)
+                    
             # 'authors','number of authors';
             # 'books','number of books';
             # size is directly readfrom the epub file
@@ -1011,7 +1040,7 @@ if __name__ == "__main__":
     parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
     
     parser.doParse()
-    lockfile =  parser.getValue('Dir') + '/' + parser.getValue('EpubIndex') + '.lock'
+    lockfile =  parser.getValue('EpubIndex') + '.lock'
     parser.LockConfig(lockfile)
    
     
@@ -1027,10 +1056,13 @@ if __name__ == "__main__":
                         onlyTags = parser.getValue('onlySubjects'),
                         excludedTags = parser.getValue('avoidSubjects'))
     
-    libraryName = parser.getValue('Dir') + '/' + parser.getValue('EpubIndex')
+    libraryName = parser.getValue('EpubIndex')
     myLibrary.Build(libraryName, parser.getValue('MaxAuthors'))
+    myLog.print("Library BUILT\n")
     
-    iniFile = parser.getValue('Dir') + '/' + parser.getValue('EpubIndex') + '.ini'
+    
+    iniFile = re.sub('.epub','',libraryName)+ '.ini'
+    
     parser.DumpConfig(iniFile, '# Index configuration file for Calisson')
     parser.UnlockConfig()
     

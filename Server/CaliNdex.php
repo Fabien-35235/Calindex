@@ -291,6 +291,9 @@
         echo "<form method='POST' action='$URL'>";
         echo "<input type='image' name='download' value='Download' src='$Download' height=40px/>";
         echo "</TD>\n";
+        echo "<TD  class=pages> ";
+        echo "<a href='QueryIndex.php'>Indexes in EPUB ebooks</A>\n";
+        echo "</TD>\n";
         echo "</TR>\n";
         
    

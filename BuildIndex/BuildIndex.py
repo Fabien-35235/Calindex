@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -#*- cod#ing: la#t#in-#1 -*-
 
 
 #pip install Pillow   #This is an option, if PIL is not installed, will use ImageMagic 
@@ -6,7 +6,7 @@
 
 #sudo chgrp http _Indexes/
 #sudo chown http _Indexes/
-#   avec FileStation, donner au group http les doits de lectue et écriture sur _Indexes
+#   avec FileStation, donner au group http les doits de lectue et  riture sur _Indexes
 
 #----------------------------------------------------------------------
 # BuildIndex.py
@@ -67,6 +67,7 @@ import sqlite3
 import configparser
 import signal
 import json
+import urllib, urllib.parse
 
 
 class myLogger:
@@ -80,7 +81,7 @@ class myLogger:
         self.print("--- Start " + datetime.datetime.now().ctime())
 
     def startLog(self, silent, dirName):
-        print("startLog", silent, dirName)
+        
         self.logfile = dirName + "/BuildIndex-" + date.today().isoformat() + ".log"
         self.filehandle = open(self.logfile, 'a', encoding='iso-8859-1', errors='replace')
 
@@ -104,18 +105,33 @@ class myLogger:
 #       truncated = list(map(lambda v:  str(str(v).encode(encoding='latin_1',errors='ignore')), args))
         #print("Trunc", truncated)
 
+        locVal = ''
+        for arg in args:
+            nval = str(arg)        
+            bytes = nval.encode(encoding ='ascii', errors='backslashreplace')
+            nval = bytes.decode()
+            locVal = locVal + ' ' + nval
+             
         if (self.silent == None):
             #Not initialized, lets buffer
-            for arg in args:
-                self.buffer = self.buffer + ' ' + str(arg) +"\n"
+            self.buffer = self.buffer + ' ' + locVal +"\n"
                 
         if (self.silent == False):
-            print(*args)
+            print(locVal)
     
     def mustPrint(self, *args):
         if (self.filehandle != None):
             print(*args, file=self.filehandle, flush=True)
-        print(*args)
+        
+        locVal = ''
+        for arg in args:
+            nval = str(arg)        
+            bytes = nval.encode(encoding ='ascii', errors='backslashreplace')
+            nval = bytes.decode()
+            locVal = locVal + ' ' + nval
+        print(locVal)    
+                 
+
 
 print("Creating Logger " )        
 myLog = myLogger()
@@ -297,6 +313,7 @@ class Epub:
         return chapter
         
     def Generate(self):
+        myLog.print("Generate")
         ebookFile = zipfile.ZipFile(self.filename,'w')
         ebookFile.writestr('mimetype', "application/epub+zip", None)
         cont = '<?xml version="1.0" encoding="UTF-8" ?>\n'
@@ -307,7 +324,7 @@ class Epub:
         cont += ' </container>\n'
         
         ebookFile.writestr('META-INF/container.xml', cont, None)
-    
+        
         opf = "<?xml version='1.0' encoding='utf-8'?>\n"
         opf += ' <package unique-identifier="id" version="3.0" xmlns="http://www.idpf.org/2007/opf" prefix="rendition: http://www.idpf.org/vocab/rendition/#">\n'
         opf += '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">\n'
@@ -325,9 +342,10 @@ class Epub:
         opf += '  </metadata>\n'
         opf += '  <manifest>\n'
         #BUG?   opf += '   <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>\n'
-
+       
         for chapter in self.chapters:
-            opf += chapter.GenerateOpf() 
+            opf += chapter.GenerateOpf()
+        
         for picture in self.pictures:
             opf += picture.GenerateOpf() 
         
@@ -349,7 +367,7 @@ class Epub:
         #    pass
         #opf += '  </guide>\n'
         opf += '</package>\n'
-
+        
         ebookFile.writestr(self.opfname, opf, zipfile.ZIP_DEFLATED)
 
         nav  = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -377,9 +395,8 @@ class Epub:
         ebookFile.writestr(self.contentdir +"/nav.xhtml", nav, zipfile.ZIP_DEFLATED)
         
         for chapter in self.chapters:
-           
             ebookFile.writestr(self.contentdir +"/"+chapter.filename, chapter.content+"</body></html>\n", zipfile.ZIP_DEFLATED)
-            
+           
             
         for picture in self.pictures:    
             ebookFile.write(picture.real, self.contentdir +"/"+picture.internal)
@@ -415,6 +432,7 @@ def Help():
     myLog.print(DocString)
 
 def clean(myString):
+    """ Used to clean the 'summary' of a book, which may hold some innapropriate HTML"""
     res = re.sub('&lt;','<',myString)
     res = re.sub('&gt;','>',res)
     res = re.sub('<p([^>]*)>','<p>',res)
@@ -424,29 +442,31 @@ def clean(myString):
 
 #cf https://www.w3schools.com/tags/ref_urlencode.asp
 def NormalizeURL(myString):
-    #res = url_normalize.url_normalize(myString)
+    res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
+    return res
+
     res = re.sub(',','%2C',myString)
     res = re.sub(" ",'%20',res) 
     res = re.sub("!",'%21',res)
     res = re.sub('"','%22',res)
     res = re.sub('#','%23',res)
     res = re.sub('\$','%24',res) 
-    #res = re.sub('%','%25',res) #SURTOUT PAS, on a deja remplacé avec des % avec url_normalize 
+    #res = re.sub('%','%25',res) #SURTOUT PAS, on a deja remplac avec des % avec url_normalize 
     res = re.sub("&",'%26',res)
     res = re.sub("'",'%27',res)
     res = re.sub('\(','%28',res)
     res = re.sub('\)','%29',res)
-    res = re.sub('é','%'+'C3'+'%'+'A9',res)
-    res = re.sub('è','%C3%A8',res)
-    res = re.sub('à','%C3%A0', res)
+    res = re.sub('Ã©','%C3%A9',res)
+    res = re.sub('Ã¨','%C3%A8',res)
+    res = re.sub('Ã ','%C3%A0', res)
     #myLog.print("normalize(", myString,")=", res)
     return res
 
-def SurNormalize(myString):
-    res = re.sub(' ','%%20',myString) #Specific to config files
-    return res
-
 def deNormalize(myString):
+    #res =urllib.parse.unquote(myString)
+    #res = re.sub('\udcc3\udca9','&eacute;',res)
+    #return res
+
     res = re.sub('%2C',',',myString)
     res = re.sub('%20'," ",res) 
     res = re.sub('%21',"!",res)
@@ -457,6 +477,31 @@ def deNormalize(myString):
     res = re.sub('%27',"'",res)
     res = re.sub('%28','\(',res)
     res = re.sub('%29','\)',res)
+   
+    res = re.sub('%C3%A9','Ã©',res)
+    res = re.sub('%C3%A8','Ã¨',res)
+    res = re.sub('%C3%A0','Ã ',res)
+    u=chr(56515)+chr(56489)
+    res = re.sub(u,'Ã©',res)
+    #myLog.print("deNormalize(",encode_for_xml(myString),")=",encode_for_xml(res))
+    return res
+
+def encode_for_xml(myString):
+    #myLog.print("encode_for_xml(", myString, ")")
+    bytes = myString.encode(encoding = 'ascii', errors = 'xmlcharrefreplace')
+    #myLog.print("==>(", res, ")")
+    res = bytes.decode()
+    #myLog.print("==>(", res, ")")
+    return res
+
+def SurNormalize(myString):
+    """ quote, specific to config files """
+    
+    res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
+    res = res.replace('%','%%')
+    return res
+
+    res = re.sub(' ','%%20',myString) #Specific to config files
     return res
     
 def stringify(myString):
@@ -477,7 +522,7 @@ class Book:
         self.name = self.title 
         self.subject=tag_name if tag_name else ''
         self.description= clean(Descr) if Descr else ''
-        self.serie= NormalizeURL(Serie) if Serie else ''
+        self.serie= Serie if Serie else '' # NormalizeURL(Serie) if Serie else ''
         self.index = int(Index) if Index else '1'
         self.epub = epub_URL if epub_URL else ''
         self.group="book" #default value
@@ -758,8 +803,8 @@ class Library:
             
     def Build(self,Filename, maxAuthors):
         today = date.today().ctime()
-        #myLog.print("Starting to BUILD(", Filename,maxAuthors,')')   
-        book = Epub('Bibliothèque ' + str(today), Filename, 'ID1234567890', 'fr')
+        myLog.print("Starting to BUILD(", Filename,maxAuthors,')')   
+        book = Epub('Bibliotheque ' + str(today), Filename, 'ID1234567890', 'fr')
       
         
         book.SetCover("cover.xhtml", "Cover", "bookCover.jpg", self.coverFile)
@@ -776,25 +821,31 @@ class Library:
         excludeURL = ''
         onlyURL = ''
         
-        
+        GlobIndex.content += "<p> Date of the Library = " + datetime.datetime.now().ctime() + "</p>\n"
+         
         if self.excludedTags:
-            GlobIndex.content += '<br>Excluded tags: '
+            GlobIndex.content += '<p>Excluded tags: '
             excludeURL = '&avoidSubjects='
             for tag in self.excludedTags:
-                GlobIndex.content += NormalizeURL(tag) + ' '
+                
+                GlobIndex.content += encode_for_xml(tag) + ' '  #because this can be bizzare unicode due to deNormalize
                 excludeURL += NormalizeURL(tag) + ','
-            GlobIndex.content += '</br>'    
+                  
+            GlobIndex.content += '</p>'    
         
         if self.onlyTags :
-            GlobIndex.content += '<br>Only the following tags: '
+            GlobIndex.content += '<p>Only the following tags: '
             onlyURL = '&onlySubjects='
             for tag in self.onlyTags:
-                GlobIndex.content += tag + ' '
+                GlobIndex.content += encode_for_xml(tag) + ' '
                 onlyURL += NormalizeURL(tag + ',')
-            GlobIndex.content += '</br>'    
+            GlobIndex.content += '</p>'    
                 
-                
-        GlobIndex.content += '<p style="text-align:center;"><a href="'+ NormalizeURL(self.BaseURL+'index.epub'+onlyURL+excludeURL) + '">Reload this index book</a></p>\n'
+        
+        reloadURL  = self.BaseURL+ 'BuildIndex.php?EpubIndex='+Filename # onlyURL+excludeURL #NO, these are useless now, because everythng is stores in config file 
+        
+        GlobIndex.content += '<p style="text-align:center;"><a href="'+ reloadURL + '">Reload this index book</a></p>\n'
+        
         
         GlobIndex.content += '<p></p>\n'
         GlobIndex.content += '<table style="width:100%">\n'
@@ -809,12 +860,13 @@ class Library:
                 break
             
         book.AddChapter(book.coverChapter)
+        GlobIndex.content += '</table>\n'
         
         book.AddChapter(GlobIndex)
- 
+        
         for page in self.ListOfAuthorPages:
             book.AddChapter(page)
-  
+        
         for page in self.ListOfBookPages:
             book.AddChapter(page)
         
@@ -823,11 +875,11 @@ class Library:
         for page in self.ListOfCovers:
             book.AddPicture(page)  
        
-        GlobIndex.content += '</table>\n'
-        #myLog.print("End of BUILD")   
+        
+        myLog.print("End of BUILD")   
         # write to the file
         book.Generate()
-        #myLog.print("End of Generate")   
+        myLog.print("End of Generate")   
 
 #--------------------------------------------------------------
 #   Args library
@@ -854,11 +906,13 @@ class Arg:
                 first = False
                 line = line + SurNormalize(v)
         else:
-            line = line + SurNormalize(str(self.value))   
+            line = line + SurNormalize(str(self.value))  
+            
+        
         return line
 
     def getHelp(self):
-        return self.key + ' : default=' + str(self.default) + ' ' + self.helpers                       
+        return self.key +  str(self.value) + ' : default=' + str(self.default) + ' ' + self.helpers                       
         #return self.getConfig() + ' : default=' + str(self.default) + ' ' + self.helpers     BUUUUUUUUUUUUUUUUUG 
  
 
@@ -893,7 +947,7 @@ class ArgsList:
         
     def doParse(self):
         self.args = self.parser.parse_args()
-       
+        
         #self.configFile has already a default value
         if (self.args.configFile and os.path.isfile( self.args.configFile)):
             self.configFile = self.args.configFile
@@ -911,6 +965,7 @@ class ArgsList:
             
         self.arglist['configFile'].value = self.configFile
         
+        myLog.print("doParse File=", self.configFile)
         for key, arg in self.arglist.items():
             if (key != 'configFile'):
                 val = fileValues.get(key,arg.default) if fileValues else None
@@ -919,6 +974,8 @@ class ArgsList:
                     val = getattr(self.args,key)
                     if (key != 'Verbose'):
                         self.containedInConfig = False
+                        
+                #myLog.print("doParse", val, key)
                 
                 if (arg.typedescr == 'int') and val:
                     arg.value = int(val)
@@ -926,12 +983,13 @@ class ArgsList:
                     arg.value = list(map(deNormalize,  val.split(',')))
                 else:
                     arg.value = val
-        
-        if self.getValue('Verbose'):
-            self.Verbose()
+                
+                myLog.print("doParse-->", arg.value, key)
 
         myLog.startLog(self.getValue('Silent'), self.getValue('Log'))
-        
+        if self.getValue('Verbose'):
+            self.Verbose()
+       
         
     def getValue(self, key):
         if key in self.arglist:
@@ -1014,7 +1072,7 @@ class ArgsList:
             # 'authors','number of authors';
             # 'books','number of books';
             # size is directly readfrom the epub file
-            # date is indicated by the last modification tiùme of the file        
+            # date is indicated by the last modification ti e of the file        
         
 #--------------------------------------------------------------
 #   Main
@@ -1027,6 +1085,7 @@ if __name__ == "__main__":
     #   if not defined, the default configuration file is read
     # then args are parsed in the order they appear in the commandline
     
+   
     
     parser = ArgsList('Build an index epub from Calibre Database.')
     
@@ -1039,8 +1098,14 @@ if __name__ == "__main__":
     parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', typedescr = 'list')
     parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
     
+    
     parser.doParse()
+    myLog.print("DEBUG: avoidSubjects", parser.getValue('avoidSubjects'))
+    
+    
     lockfile =  parser.getValue('EpubIndex') + '.lock'
+    
+    print("PARSING", lockfile)
     parser.LockConfig(lockfile)
    
     

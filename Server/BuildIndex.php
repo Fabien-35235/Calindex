@@ -87,7 +87,7 @@
   }
   
   $DatabaseDate = GetDateOfFile($database);
-  $EpubFile = $_GET['EpubIndex'];
+  $EpubFile = urldecode($_GET['EpubIndex']);
   $EpubDate = GetDateOfFile($EpubFile);
   
   
@@ -101,16 +101,16 @@
   //echo("Epub must be created again ! $EpubFile $EpubDate < $database $DatabaseDate\n"); 
   // so Epub must be created again
   if (isset($_GET['configFile'])) {
-      $myConfig = $_GET['configFile'];
-  } elseif (preg_match("/(\w+)\.epub/",$EpubFile, $matches) === 1){
-      $myConfig = $matches[1].".epub";
+      $myConfig = urldecode($_GET['configFile']);
+  } elseif (preg_match("/(.+)\.epub/",$EpubFile, $matches) === 1){
+      $myConfig = $matches[1].".ini";
   }
   
   $separator = '';
   $myArgs = '';
   foreach($_GET as $key => $value) {
       if (($key != 'EpubIndex') and ($key != 'configFile')){
-        $myArgs = $myArgs . $separator . $key;
+        $myArgs = $myArgs . $separator . urldecode($key);
         $separator = ',';
       }
     }
@@ -130,18 +130,27 @@
   $myCmd = $myCmd." --Verbose ". escapeshellarg('t');
   $myCmd = $myCmd." --Silent ". escapeshellarg('t');
   $myCmd = $myCmd." --Log ". escapeshellarg($ConfigDir);
-  //echo("CMD = $myCmd");
-  $res = exec($myCmd, $retArr, $retVal);
+  
+  $debug = False;
+  //$debug = True;
+
+  if ($debug){
+    echo("CMD = $myCmd");
+    $res = exec($myCmd, $retArr, $retVal);
   
     
-  //echo("<br>RetArray:</br>\n"); 
-  //foreach($retArr as $l){
-  //  echo("<br>$l</br>\n");
-  //}
-  //echo("<br>RetVal:"); echo($retVal);
-  //
-  
-  header("Location: $EpubFile"); 
-  die();
+    echo("<br>RetArray:</br>\n"); 
+    foreach($retArr as $l){
+      echo("<br>$l</br>\n");
+    }
+    echo("<br>RetVal:"); echo($retVal);
+  } else {
+    
+    $res = exec($myCmd, $retArr, $retVal);
+    header("Location: $EpubFile"); 
+    die();
  
+  }
+  
+  //
 ?>

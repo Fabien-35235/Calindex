@@ -132,7 +132,7 @@
   $myCmd = $myCmd." --Log ". escapeshellarg($ConfigDir);
   
   $debug = False;
-  //$debug = True;
+  $debug = True;
 
   if ($debug){
     echo("CMD = $myCmd");

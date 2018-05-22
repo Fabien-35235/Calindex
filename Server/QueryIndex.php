@@ -58,6 +58,7 @@
          $res[$t]='No';
       }
       $res['Name'] = $Name;
+      $res['configFile'] = $Filename;
       
       while ($str = fgets($f)){
          if (preg_match("/\s*#/", $str)){
@@ -132,7 +133,8 @@
       foreach ($ConfigList as $conf){
           echo "<td>" . GetConfigValue($AllConfs, $conf, $Field) . "</td>";
       }
-      echo "<td> <input type='checkbox' name='".urlencode($Field)."'></td>";
+      echo "<td> <input type='checkbox' name='".$Field."'></td>";
+      //echo "<td> <input type='checkbox' name='".urlencode($Field)."'></td>";
       echo "</tr>\n";
    }
     
@@ -147,7 +149,6 @@
    
    function IsAFreeName($AllConfs, $ConfigList, $name){
       foreach ($ConfigList as $conf){
-         echo("CONF ($conf)");
          if ($conf == $name){return False;}
       }
       return True;
@@ -203,7 +204,7 @@
          if (GetConfigValue($AllConfs, $conf,'uptodate') == 'Yes'){
             echo '<td><A href="'.GetConfigValue($AllConfs, $conf, 'EpubIndex') . '">Download</A></td>';
          } else {
-            echo '<td><A href="BuildIndex.php?configFile=' . GetConfigValue($AllConfs, $conf, 'Name') . '.ini';
+            echo '<td><A href="BuildIndex.php?configFile=' . GetConfigValue($AllConfs, $conf, 'configFile') ;
             echo '&EpubIndex=' . GetConfigValue($AllConfs, $conf, 'EpubIndex') ;
             echo '">DOWNLOAD</A></td>';
          }

@@ -79,6 +79,7 @@ class myLogger:
         self.silent = None
         self.buffer = ''
         self.print("--- Start " + datetime.datetime.now().ctime())
+        self.print("Arguments " + str(sys.argv))
 
     def startLog(self, silent, dirName):
         
@@ -133,7 +134,8 @@ class myLogger:
                  
 
 
-print("Creating Logger " )        
+print("Args= ",str(sys.argv))
+print("Creating Logger ")        
 myLog = myLogger()
 print("Logger Created")
 
@@ -496,12 +498,16 @@ def encode_for_xml(myString):
 
 def SurNormalize(myString):
     """ quote, specific to config files """
-    
+
     res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
     res = res.replace('%','%%')
     return res
-
+    
+   
+    
     res = re.sub(' ','%%20',myString) #Specific to config files
+    u=chr(56515)+chr(56489)
+    res = re.sub('é',u,res) 
     return res
     
 def stringify(myString):
@@ -768,7 +774,7 @@ class Library:
         curAuthor=None
         #myLog.print(curRow.keys())
         while(curRow != None):
-            #myLog.print("TEST",  curRow['author_name'])
+            
             #myLog.print("TEST", curRow['title'],  curRow['tag_name'])
             if (self.excluded(curRow['tag_name'])):
                 #myLog.print("EXCLUDED", curRow['title'], curRow['tag_name'])
@@ -830,15 +836,17 @@ class Library:
                 
                 GlobIndex.content += encode_for_xml(tag) + ' '  #because this can be bizzare unicode due to deNormalize
                 excludeURL += NormalizeURL(tag) + ','
-                  
+                 
             GlobIndex.content += '</p>'    
         
         if self.onlyTags :
             GlobIndex.content += '<p>Only the following tags: '
             onlyURL = '&onlySubjects='
             for tag in self.onlyTags:
+                
                 GlobIndex.content += encode_for_xml(tag) + ' '
                 onlyURL += NormalizeURL(tag + ',')
+                
             GlobIndex.content += '</p>'    
                 
         
@@ -854,10 +862,12 @@ class Library:
         curAuthor = 0    
         for myAuthor in self.Authors:
             curAuthor += 1
-            #myLog.print ("Printing ",myAuthor.firstname,myAuthor.lastname )
+            #myLog.print ("building page for ",myAuthor.firstname,myAuthor.lastname, maxAuthors)
             GlobIndex.content += myAuthor.BuildAuthorPage(self)
-            if (maxAuthors and (curAuthor >= maxAuthors)):
+            
+            if ((maxAuthors != None) and (curAuthor >= maxAuthors)):
                 break
+            
             
         book.AddChapter(book.coverChapter)
         GlobIndex.content += '</table>\n'
@@ -912,8 +922,8 @@ class Arg:
         return line
 
     def getHelp(self):
-        return self.key +  str(self.value) + ' : default=' + str(self.default) + ' ' + self.helpers                       
-        #return self.getConfig() + ' : default=' + str(self.default) + ' ' + self.helpers     BUUUUUUUUUUUUUUUUUG 
+        #return self.key + ' = "'+ str(self.value) + '" : default= "' + str(self.default) + '" ' + self.helpers                       
+        return self.getConfig() + ' : default=' + str(self.default) + ' ' + self.helpers   #  BUUUUUUUUUUUUUUUUUG 
  
 
 def isProcessRunning(process_id):
@@ -946,11 +956,15 @@ class ArgsList:
         self.configFile = 'BuildIndex.ini'
         
     def doParse(self):
+        myLog.print("doParse()")
         self.args = self.parser.parse_args()
         
         #self.configFile has already a default value
-        if (self.args.configFile and os.path.isfile( self.args.configFile)):
-            self.configFile = self.args.configFile
+        if (self.args.configFile):
+            if (os.path.isfile( self.args.configFile)):    
+                self.configFile = self.args.configFile
+            else:
+                myLog.print("ERROR: Configuration file Argument", self.args.configFile,"does not exist!  fall-back to",self.configFile)
             
         if (os.path.isfile(self.configFile)):
             self.config.read(self.configFile,encoding='utf-8')
@@ -965,7 +979,7 @@ class ArgsList:
             
         self.arglist['configFile'].value = self.configFile
         
-        myLog.print("doParse File=", self.configFile)
+        #myLog.print("doParse File=", self.configFile)
         for key, arg in self.arglist.items():
             if (key != 'configFile'):
                 val = fileValues.get(key,arg.default) if fileValues else None
@@ -975,16 +989,24 @@ class ArgsList:
                     if (key != 'Verbose'):
                         self.containedInConfig = False
                         
-                #myLog.print("doParse", val, key)
+                #myLog.print("Argument(", key,')=', val, type(val))
                 
-                if (arg.typedescr == 'int') and val:
-                    arg.value = int(val)
-                elif (arg.typedescr == 'list') and val:
-                    arg.value = list(map(deNormalize,  val.split(',')))
-                else:
-                    arg.value = val
+                arg.value = val
+                try:
+                    if (val == None):
+                        pass;
+                    elif(val == "None"):
+                        arg.value = None
+                    elif (arg.typedescr == 'int') :
+                        arg.value = int(val) 
+                    elif (arg.typedescr == 'list'):
+                        arg.value = list(map(deNormalize,  val.split(',')))
+                except (TypeError, ValueError):
+                    pass;
+                        
+                myLog.print("Argument(", key,')=', arg.value, type(arg.value))
                 
-                myLog.print("doParse-->", arg.value, key)
+    
 
         myLog.startLog(self.getValue('Silent'), self.getValue('Log'))
         if self.getValue('Verbose'):
@@ -1059,7 +1081,7 @@ class ArgsList:
             return
         
         myLog.mustPrint("INFO: generating new config file\n")
-        with open(filename, 'w') as myFile:
+        with open(filename, 'w',encoding='utf-8') as myFile:
             print(comment, file=myFile)
             print('[BuildIndex]', file=myFile)      
            

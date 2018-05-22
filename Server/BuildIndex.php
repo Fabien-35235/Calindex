@@ -41,9 +41,8 @@
     
     echo '<!DOCTYPE html>'."\n";
     echo '<html><head>'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'."\n";
+    echo '<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1" />'."\n";
     echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'."\n";
     echo '<head>'."\n";
     echo "  <link rel='stylesheet' href='$css'>\n";
     echo '</head>'."\n";
@@ -68,17 +67,17 @@
 
 
 
+ 
+  function GetDateOfFile($Filename){
+      $stats = stat($Filename);
+      if (isset($stats)) return $stats['mtime']; 
+      return 0;
+  }
+
+
   // ---------------------------------------------------------------------
   // 'Main()'
   // ---------------------------------------------------------------------
-
-  function GetDateOfFile($Filename){
-     
-      $stats = stat($Filename);
-      if (isset($stats)) return $stats['mtime'];
-       
-      return 0;
-  }
 
   if (! isset($_GET['EpubIndex'] )){
     PrintPageStart();
@@ -92,7 +91,6 @@
   
   
   if ($EpubDate > $DatabaseDate){
-     // Epub Exists and is more recent
      //echo("Epub Exists and is more recent\n"); 
      header("Location: $EpubFile"); 
      die();
@@ -111,6 +109,7 @@
   foreach($_GET as $key => $value) {
       if (($key != 'EpubIndex') and ($key != 'configFile')){
         $myArgs = $myArgs . $separator . urldecode($key);
+        //echo("ARG($key)=$value, ".urldecode($key)."\n"); 
         $separator = ',';
       }
     }
@@ -125,7 +124,7 @@
       $myCmd = $myCmd." --configFile ".escapeshellarg( $myConfig);
   }
   if ($myArgs != ''){
-      $myCmd = $myCmd." --avoidSubjects ". escapeshellarg($myArgs);
+      $myCmd = $myCmd." --avoidSubjects ". escapeshellarg(urlencode($myArgs));
   }
   $myCmd = $myCmd." --Verbose ". escapeshellarg('t');
   $myCmd = $myCmd." --Silent ". escapeshellarg('t');

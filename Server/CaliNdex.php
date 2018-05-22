@@ -27,9 +27,8 @@
     
     echo '<!DOCTYPE html>'."\n";
     echo '<html><head>'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'."\n";
+    echo '<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1" />'."\n";
     echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'."\n";
     echo '<head>'."\n";
     echo '  <link rel="stylesheet" href="'.$css.'">'."\n";
     echo '</head>'."\n";

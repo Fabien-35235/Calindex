@@ -1,4 +1,4 @@
-# -#*- cod#ing: la#t#in-#1 -*-
+# - * - cod ing: la ti n-1 - *- NONO
 
 
 #pip install Pillow   #This is an option, if PIL is not installed, will use ImageMagic 
@@ -447,73 +447,22 @@ def NormalizeURL(myString):
     res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
     return res
 
-    res = re.sub(',','%2C',myString)
-    res = re.sub(" ",'%20',res) 
-    res = re.sub("!",'%21',res)
-    res = re.sub('"','%22',res)
-    res = re.sub('#','%23',res)
-    res = re.sub('\$','%24',res) 
-    #res = re.sub('%','%25',res) #SURTOUT PAS, on a deja remplac avec des % avec url_normalize 
-    res = re.sub("&",'%26',res)
-    res = re.sub("'",'%27',res)
-    res = re.sub('\(','%28',res)
-    res = re.sub('\)','%29',res)
-    res = re.sub('é','%C3%A9',res)
-    res = re.sub('è','%C3%A8',res)
-    res = re.sub('à','%C3%A0', res)
-    #myLog.print("normalize(", myString,")=", res)
-    return res
+  
 
 def deNormalize(myString):
-    #res =urllib.parse.unquote(myString)
-    #res = re.sub('\udcc3\udca9','&eacute;',res)
-    #return res
-
-    res = re.sub('%2C',',',myString)
-    res = re.sub('%20'," ",res) 
-    res = re.sub('%21',"!",res)
-    res = re.sub('%22','"',res)
-    res = re.sub('%23','#',res)
-    res = re.sub('%24','\$',res) 
-    res = re.sub('%26',"&",res)
-    res = re.sub('%27',"'",res)
-    res = re.sub('%28','\(',res)
-    res = re.sub('%29','\)',res)
-   
-    res = re.sub('%C3%A9','é',res)
-    res = re.sub('%C3%A8','è',res)
-    res = re.sub('%C3%A0','à',res)
-    u=chr(56515)+chr(56489)
-    res = re.sub(u,'é',res)
-    #myLog.print("deNormalize(",encode_for_xml(myString),")=",encode_for_xml(res))
+    res =urllib.parse.unquote(myString)
+    res = res.replace('+',' ')
+    myLog.print("deNormalize(",encode_for_xml(myString),")=",encode_for_xml(res))
     return res
+
+
 
 def encode_for_xml(myString):
-    #myLog.print("encode_for_xml(", myString, ")")
     bytes = myString.encode(encoding = 'ascii', errors = 'xmlcharrefreplace')
-    #myLog.print("==>(", res, ")")
     res = bytes.decode()
-    #myLog.print("==>(", res, ")")
+    #myLog.print("encode_for_xml(", myString, ")=", res)
     return res
 
-def SurNormalize(myString):
-    """ quote, specific to config files """
-
-    res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
-    res = res.replace('%','%%')
-    return res
-    
-   
-    
-    res = re.sub(' ','%%20',myString) #Specific to config files
-    u=chr(56515)+chr(56489)
-    res = re.sub('é',u,res) 
-    return res
-    
-def stringify(myString):
-    res = re.sub('\W','_',myString)
-    return res
-    
 
 class Book:
     """ Describes a Book """
@@ -834,7 +783,7 @@ class Library:
             excludeURL = '&avoidSubjects='
             for tag in self.excludedTags:
                 
-                GlobIndex.content += encode_for_xml(tag) + ' '  #because this can be bizzare unicode due to deNormalize
+                GlobIndex.content += encode_for_xml(tag) + ','  
                 excludeURL += NormalizeURL(tag) + ','
                  
             GlobIndex.content += '</p>'    
@@ -844,7 +793,7 @@ class Library:
             onlyURL = '&onlySubjects='
             for tag in self.onlyTags:
                 
-                GlobIndex.content += encode_for_xml(tag) + ' '
+                GlobIndex.content += encode_for_xml(tag) + ','
                 onlyURL += NormalizeURL(tag + ',')
                 
             GlobIndex.content += '</p>'    
@@ -895,7 +844,16 @@ class Library:
 #   Args library
 #--------------------------------------------------------------
 
-
+def isProcessRunning(process_id):
+    pass
+    try:
+        os.kill(process_id, 0)
+        return True
+    except OSError:
+        return False
+  
+  
+    
 class Arg:
     def __init__(self, key,  defaultVal = None, helper = None, typedescr = None):
         self.key = key
@@ -906,40 +864,30 @@ class Arg:
  
        
     def getConfig(self):
-        
         line = self.key + ' = ' 
         if (isinstance(self.value, list)):
-            first = True
+            sep = ''
             for v in self.value:
-                if (first != True):
-                    line = line +','
-                first = False
-                line = line + SurNormalize(v)
+                line = line + sep + str(v)
+                sep = ','
         else:
-            line = line + SurNormalize(str(self.value))  
-            
-        
+            line = line + str(self.value)  
         return line
 
+
     def getHelp(self):
-        #return self.key + ' = "'+ str(self.value) + '" : default= "' + str(self.default) + '" ' + self.helpers                       
-        return self.getConfig() + ' : default=' + str(self.default) + ' ' + self.helpers   #  BUUUUUUUUUUUUUUUUUG 
+        return self.key + ' = "'+ str(self.value) + '" : default= "' + str(self.default) + '" ' + self.helpers                       
+       
  
 
-def isProcessRunning(process_id):
-    pass
-    try:
-        os.kill(process_id, 0)
-        return True
-    except OSError:
-        return False
-    
+
 
         
 class ArgsList:
     def __init__(self, helper):
         self.help = helper
         self.arglist = {}
+        self.fileValues = {}
         self.parser = argparse.ArgumentParser(description=helper)
         self.containedInConfig = True #All meaningful configurations are contained in the config file,
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
@@ -947,8 +895,30 @@ class ArgsList:
         self.addArg('Verbose',False,'Print this Help')
         self.addArg('Silent',False,'Does not print on STDOUT, only in log file')
         
-        self.config = configparser.ConfigParser()
+        
 
+    def readConfigFile(self):
+        with open(self.configFile, 'r', encoding='UTF-8', errors='replace') as myFile:
+            pattern = re.compile("^\s*(\S+)\s*=\s*(\S.*)\s*$")
+            comment = re.compile("^\s*#")
+            
+            for myLine in myFile:
+                myLine = myLine.replace('\n','')
+                if (myLine == '[BuildIndex]'):
+                    continue    
+                
+                rp = pattern.match(myLine)
+                if (rp):
+                    self.fileValues[rp.group(1)]= rp.group(2)
+                    myLog.print("Found config item ("+str(rp.group(1))+ ")= '" + str(rp.group(2))+"'")
+                else:
+                    
+                    rc = comment.match(myLine)
+                    if (not rc):
+                        myLog.print("ERROR config file",self.configFile,"line ", myLine," NOT a known parameter")
+        
+        print("Read configuration file ", self.configFile)
+        
         
     def addArg(self, key, defaultVal = None, helper = None,  typedescr=None):
         self.arglist[key] = Arg(key, defaultVal, helper, typedescr=typedescr)
@@ -967,28 +937,33 @@ class ArgsList:
                 myLog.print("ERROR: Configuration file Argument", self.args.configFile,"does not exist!  fall-back to",self.configFile)
             
         if (os.path.isfile(self.configFile)):
-            self.config.read(self.configFile,encoding='utf-8')
+            self.readConfigFile()
             myLog.print("Read configuration file ", self.configFile)
-            fileValues = self.config['BuildIndex']
+           
             
         else:
             myLog.print("ERROR : configFile ",self.configFile,"does NOT exist" )
             self.configFile = None
-            fileValues = None
+            self.fileValues = None
             self.containedInConfig = False
             
         self.arglist['configFile'].value = self.configFile
         
         #myLog.print("doParse File=", self.configFile)
+        # analyse the arguments passed over the command line
         for key, arg in self.arglist.items():
             if (key != 'configFile'):
-                val = fileValues.get(key,arg.default) if fileValues else None
+                val = self.fileValues[key] if (self.fileValues and key in self.fileValues) else arg.default
                 
                 if (hasattr(self.args,key) and getattr(self.args,key)):
-                    val = getattr(self.args,key)
-                    if (key != 'Verbose'):
+                    val = deNormalize(getattr(self.args,key))
+                    if (key != 'Verbose') and (key != 'EpubIndex'):
                         self.containedInConfig = False
-                        
+                        myLog.print("Argument(", key,')=', val, " is new: will rebuild the config File")
+                        # ====================== BUG HERE: Il faut analyser la valeur pour voir si différent de la valeur par défaut ============
+                else:
+                    pass #============= BUG HERE: il devrait y avoir un message d'erreur
+                
                 #myLog.print("Argument(", key,')=', val, type(val))
                 
                 arg.value = val
@@ -1000,7 +975,7 @@ class ArgsList:
                     elif (arg.typedescr == 'int') :
                         arg.value = int(val) 
                     elif (arg.typedescr == 'list'):
-                        arg.value = list(map(deNormalize,  val.split(',')))
+                        arg.value = val.split(',') #list(map(deNormalize,  val.split(',')))
                 except (TypeError, ValueError):
                     pass;
                         
@@ -1011,7 +986,7 @@ class ArgsList:
         myLog.startLog(self.getValue('Silent'), self.getValue('Log'))
         if self.getValue('Verbose'):
             self.Verbose()
-       
+        
         
     def getValue(self, key):
         if key in self.arglist:
@@ -1061,13 +1036,7 @@ class ArgsList:
             exit(-1)
         myLog.mustPrint("Lock file ", lockfile, " does not exist")    
         return self.createLock(lockfile)    
-       
-            
-
-        #20 seconds elapsed, no unlock
-        #Kill the process
-       
-        # BUG here, should be an error lock file unavailable 
+        
             
     def UnlockConfig(self):
         os.unlink(self.lockfile)
@@ -1083,11 +1052,12 @@ class ArgsList:
         myLog.mustPrint("INFO: generating new config file\n")
         with open(filename, 'w',encoding='utf-8') as myFile:
             print(comment, file=myFile)
-            print('[BuildIndex]', file=myFile)      
+            #print('[BuildIndex]', file=myFile)      
            
-            for key,arg in self.arglist.items():
+            for key in sorted(self.arglist):
                 #myLog.print("key", key, "value", arg.value)
                 if (key != 'configFile'):
+                    arg=self.arglist[key]
                     #myLog.print(arg.getConfig())
                     print(arg.getConfig(), file=myFile)
                     

@@ -68,12 +68,15 @@
             $val = preg_replace("/(\n|\r|\f)/","",$groups[2]);
             $res[$groups[1]]=$val ;
             if (($groups[1] === 'onlySubjects') or ($groups[1] ==='avoidSubjects')){
-                $res['mode']= $groups[1];
-                //echo ("Found($groups[1])=$groups[2]");
-                $tags = explode(',', $val);
-                foreach ($tags as $t){
-                     $t = preg_replace("/\%%20/"," ",$t); // Surprising, but because % has to be doubled in the .ini file due to python libs.     
+                  //echo ("Found($groups[1])=$groups[2]");
+                  $tags = explode(',', $val);
+                 
+                  foreach ($tags as $t){
+                     //$t = preg_replace("/\%%20/"," ",$t); // Surprising, but because % has to be doubled in the .ini file due to python libs.     
                      $res[$t]='Yes' ;
+                     if ($t !="None"){
+                        $res['mode']= $groups[1]; // We do it only here, so that tag=None does not change the mode 
+                     }
                      //echo("TAG '$t'\n");
                }
             }
@@ -172,13 +175,17 @@
       echo "<p>The date of the database is " . date("d/m/Y H:i:s",$DatabaseDate) . "</p>\n";
       echo "<p>Please chose a pre-existing index, or create your own</p>\n";
       echo "<p>NB: if an index is marked NOT up to date, it will be rebuilt before download<p>\n";
-      echo "<form method='GET' action='BuildIndex.php'>\n";
+      
+      $NewEpub = $ConfigDir."/".GetFreeName($AllConfs, $ConfigList);
+      
+      echo "<form method='GET' action='BuildIndex.php?'>\n";
+      echo "<input type='hidden' name='EpubIndex' value='$NewEpub'>\n";
       echo "<table>\n";
 
       PrintOneField($AllConfs, $ConfigList, 'Name' , 'Name','Build my own');
-      $NewEpub = $ConfigDir."/".GetFreeName($AllConfs, $ConfigList);
+   
       $InputField = "<input type='text' name='EpubIndex' value = '$NewEpub' maxLength='32'>";
-      PrintOneField($AllConfs, $ConfigList, 'EpubIndex' , 'File', $InputField);
+      //PrintOneField($AllConfs, $ConfigList, 'EpubIndex' , 'File', $InputField);
     
     
       echo "<tr><td>Tags</td>";

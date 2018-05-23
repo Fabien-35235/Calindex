@@ -127,11 +127,10 @@
       $myCmd = $myCmd." --avoidSubjects ". escapeshellarg(urlencode($myArgs));
   }
   $myCmd = $myCmd." --Verbose ". escapeshellarg('t');
-  $myCmd = $myCmd." --Silent ". escapeshellarg('t');
   $myCmd = $myCmd." --Log ". escapeshellarg($ConfigDir);
   
   $debug = False;
-  $debug = True;
+  //$debug = True;
 
   if ($debug){
     echo("CMD = $myCmd");

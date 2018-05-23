@@ -76,68 +76,37 @@ class myLogger:
       
         self.logfile = None      
         self.filehandle = None
-        self.silent = None
         self.buffer = ''
         self.print("--- Start " + datetime.datetime.now().ctime())
         self.print("Arguments " + str(sys.argv))
 
-    def startLog(self, silent, dirName):
-        
-        self.logfile = dirName + "/BuildIndex-" + date.today().isoformat() + ".log"
-        self.filehandle = open(self.logfile, 'a', encoding='iso-8859-1', errors='replace')
 
-        if (self.silent == None) and (silent == False):
-            #Silent was not initiallized
-            print("--- Bufferred")
-            print(self.buffer)
-            print("--- end of Bufferred")
-            
-        if (self.silent == None) and (self.filehandle != None):
-            #Silent was not initiallized
-            print(self.buffer, file=self.filehandle, flush=True)           
-        
+    def startLog(self, dirName):  
+        self.logfile = dirName + "/BuildIndex-" + date.today().isoformat() + ".log"
+        self.filehandle = open(self.logfile, 'a', encoding='iso-8859-1', errors='backslashreplace')
+
+        print(self.buffer, file=self.filehandle, flush=True)           
         self.buffer = ''
-        self.silent = silent
+    
         
         
     def print(self, *args):
-        if (self.filehandle != None):
-            print(*args, file=self.filehandle, flush=True)
-#       truncated = list(map(lambda v:  str(str(v).encode(encoding='latin_1',errors='ignore')), args))
-        #print("Trunc", truncated)
-
-        locVal = ''
+        asciiMsg = ''
         for arg in args:
             nval = str(arg)        
             bytes = nval.encode(encoding ='ascii', errors='backslashreplace')
             nval = bytes.decode()
-            locVal = locVal + ' ' + nval
-             
-        if (self.silent == None):
-            #Not initialized, lets buffer
-            self.buffer = self.buffer + ' ' + locVal +"\n"
-                
-        if (self.silent == False):
-            print(locVal)
-    
-    def mustPrint(self, *args):
-        if (self.filehandle != None):
-            print(*args, file=self.filehandle, flush=True)
+            asciiMsg = asciiMsg + ' ' + nval
+                     
+        print(asciiMsg)
         
-        locVal = ''
-        for arg in args:
-            nval = str(arg)        
-            bytes = nval.encode(encoding ='ascii', errors='backslashreplace')
-            nval = bytes.decode()
-            locVal = locVal + ' ' + nval
-        print(locVal)    
-                 
-
-
-print("Args= ",str(sys.argv))
-print("Creating Logger ")        
+        if (self.filehandle == None):
+            self.buffer = self.buffer + asciiMsg +"\n"
+        else:
+            print(*args, file=self.filehandle, flush=True)
+       
 myLog = myLogger()
-print("Logger Created")
+
 
 
 #----------------------------------------------------------------------
@@ -564,7 +533,7 @@ class Book:
        
         bookText.content +=  myBook.description +'\n'
         bookText.content += '<p><img src="' + myBook.thumbnail + '" alt="Cover Image"></img></p>\n'
-        #bookText.content += '</body></html>'
+        
         
         myLibrary.ListOfBookPages.append(bookText)
         
@@ -893,7 +862,7 @@ class ArgsList:
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
         self.addArg('Log','.','the path where logs are generated')    
         self.addArg('Verbose',False,'Print this Help')
-        self.addArg('Silent',False,'Does not print on STDOUT, only in log file')
+        
         
         
 
@@ -917,7 +886,7 @@ class ArgsList:
                     if (not rc):
                         myLog.print("ERROR config file",self.configFile,"line ", myLine," NOT a known parameter")
         
-        print("Read configuration file ", self.configFile)
+        myLog.print("Read configuration file ", self.configFile)
         
         
     def addArg(self, key, defaultVal = None, helper = None,  typedescr=None):
@@ -926,7 +895,7 @@ class ArgsList:
         self.configFile = 'BuildIndex.ini'
         
     def doParse(self):
-        myLog.print("doParse()")
+        #myLog.print("Parsing Arguments from Cmdline AND configFile()")
         self.args = self.parser.parse_args()
         
         #self.configFile has already a default value
@@ -935,12 +904,10 @@ class ArgsList:
                 self.configFile = self.args.configFile
             else:
                 myLog.print("ERROR: Configuration file Argument", self.args.configFile,"does not exist!  fall-back to",self.configFile)
-            
+        
         if (os.path.isfile(self.configFile)):
             self.readConfigFile()
-            myLog.print("Read configuration file ", self.configFile)
-           
-            
+            myLog.print("Read configuration file ", self.configFile) 
         else:
             myLog.print("ERROR : configFile ",self.configFile,"does NOT exist" )
             self.configFile = None
@@ -948,6 +915,7 @@ class ArgsList:
             self.containedInConfig = False
             
         self.arglist['configFile'].value = self.configFile
+        
         
         #myLog.print("doParse File=", self.configFile)
         # analyse the arguments passed over the command line
@@ -979,11 +947,8 @@ class ArgsList:
                 except (TypeError, ValueError):
                     pass;
                         
-                myLog.print("Argument(", key,')=', arg.value, type(arg.value))
-                
-    
-
-        myLog.startLog(self.getValue('Silent'), self.getValue('Log'))
+                #myLog.print("Argument(", key,')=', arg.value, type(arg.value))
+        myLog.startLog(self.getValue('Log'))
         if self.getValue('Verbose'):
             self.Verbose()
         
@@ -994,9 +959,8 @@ class ArgsList:
         return None
     
     def Verbose(self):
-        myLog.print("\n\nBuildIndex.py", self.help)
         for key,arg in self.arglist.items():
-            myLog.mustPrint(arg.getHelp())
+            myLog.print(arg.getHelp())
         myLog.print('\n\n')
     
     def createLock(self, lockfile):
@@ -1008,15 +972,15 @@ class ArgsList:
                 content['date']= datetime.datetime.now().ctime()
                 content['pid'] = os.getpid()
                 json.dump( content, myFile)
-            myLog.mustPrint("Locked ", lockfile)
+            myLog.print("Locked ", lockfile)
             return True
         except OSError:
-            myLog.mustPrint("ERROR: Lock file  ", lockfile, " CANNOT BE CREATED")
+            myLog.print("ERROR: Lock file  ", lockfile, " CANNOT BE CREATED")
             return False
     
     def LockConfig(self, lockfile):
         self.lockfile = lockfile
-        myLog.mustPrint("Locking ", lockfile)
+        myLog.print("Locking ", lockfile)
         if (os.path.isfile(lockfile)):
             with open(lockfile,"r") as reading:
                 vals = json.load(reading)
@@ -1026,30 +990,30 @@ class ArgsList:
             for i in range(0,20):
                 foo = isProcessRunning(pid)
                 if (foo == True):
-                    myLog.mustPrint("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
+                    myLog.print("WARNING:",lockfile," is alredy in use, waiting 1 seconds")
                     time.sleep(1)
                 else:
-                    myLog.mustPrint('WARNING: PID ',pid, ' has stopped abnormally') 
+                    myLog.print('WARNING: PID ',pid, ' has stopped abnormally') 
                     return self.createLock(lockfile)
                      
-            myLog.mustPrint("WARNING: PID ",pid, ' is probably blocked')
+            myLog.print("WARNING: PID ",pid, ' is probably blocked')
             exit(-1)
-        myLog.mustPrint("Lock file ", lockfile, " does not exist")    
+        myLog.print("Lock file ", lockfile, " does not exist")    
         return self.createLock(lockfile)    
         
             
     def UnlockConfig(self):
         os.unlink(self.lockfile)
-        myLog.mustPrint("INFO: unlocked ", self.lockfile)
+        myLog.print("INFO: unlocked ", self.lockfile)
 
 
     def DumpConfig(self, filename, comment=''):
         if (self.containedInConfig):
             #dumping a new config file is useless, because everything is contained in the initial config file
-            myLog.mustPrint("INFO: The information about the .epub is entirely contained in the config file\n")
+            myLog.print("INFO: The information about the .epub is entirely contained in the config file\n")
             return
         
-        myLog.mustPrint("INFO: generating new config file\n")
+        myLog.print("INFO: generating new config file\n")
         with open(filename, 'w',encoding='utf-8') as myFile:
             print(comment, file=myFile)
             #print('[BuildIndex]', file=myFile)      

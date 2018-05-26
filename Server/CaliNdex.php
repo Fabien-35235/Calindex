@@ -1,41 +1,6 @@
  <?php
  
-  $possible_height = array(32, 45, 68, 100, 500, 'All');
-  $database= "metadata.db";
-  $css= "_Resources/style.css";
-  $PageUp = "_Resources/PageUp.png";
-  $PageDown = "_Resources/PageDown.png";
-  $Download = "_Resources/Download.png";
-   
-  $xml=simplexml_load_file("CaliNdex.ini");
-  if ($xml){
-    
-    $database = $xml->database;
-    $possible_height = explode(',',$xml->height );
-    $PageUp = $xml->pageup;
-    $PageDown = $xml->pagedown;
-    $Download = $xml->download;
-    $css = $xml->css;
-  } else {
-    echo "<H1>ERROR: Database $database cannot be read</H1>\n";
-  }
-  $height = $possible_height[0];
-  $URL= basename(__FILE__);
-
-  function PrintPageStart(){
-    global $css;
-    
-    echo '<!DOCTYPE html>'."\n";
-    echo '<html><head>'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1" />'."\n";
-    echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
-    echo '<head>'."\n";
-    echo '  <link rel="stylesheet" href="'.$css.'">'."\n";
-    echo '</head>'."\n";
-    echo '<title>ebooks index </title>'."\n";
-    echo '<BODY>'."\n";
-  }
-
+  include 'inits.php';
 
   function describeTable($name,$conn){
       
@@ -237,7 +202,7 @@
       global $height;
       global $URL, $PageDown, $PageUp, $Download;
       
-      PrintPageStart();
+      PrintPageStart("Ebooks Index");
       
       $ActuallyPrinted = 0;
       $LastAuthor = "";

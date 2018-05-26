@@ -61,9 +61,9 @@ import tempfile
 import datetime
 from datetime import date
 import zipfile
-import argparse
 import importlib
 import sqlite3
+#import argparse
 #import configparser
 import signal
 import json
@@ -854,18 +854,48 @@ class Arg:
 class ArgsList:
     def __init__(self, helper):
         self.help = helper
-        self.arglist = {}
-        self.fileValues = {}
-        self.parser = argparse.ArgumentParser(description=helper)
+        self.arglist = {}        #Formal parameters
+        self.fileValues = {}     #read from config file
+        self.CmdlineValue = {}   #read from CmdLine
+        #self.parser = argparse.ArgumentParser(description=helper)
         self.containedInConfig = True #All meaningful configurations are contained in the config file,
         self.addArg('configFile',  defaultVal='BuildIndex.ini', helper='Configuration file (default: BuildIndex.ini)')
         self.addArg('Log','.','the path where logs are generated')    
         self.addArg('Verbose',False,'Print this Help')
         
         
+    def argsParse(self, args):
+        myMax = len(args)
+        skipNext = True #always skip arg[0]=scriptname
+        for i in range(myMax):
+            if (skipNext):
+                skipNext = False
+                continue
+            skipNext = False
+            myArg = args[i]
+           
+            if (myArg.startswith('--')):
+                key=myArg[2:]
+                if (key in self.arglist):
+                    if (self.arglist[key].typedescr == 'Boolean'):
+                        self.CmdlineValue[key]=True
+                    elif (i < myMax) and (not args[i+1].startswith('--')): 
+                        self.CmdlineValue[key]=args[i+1]
+                        i += 1
+                        #myLog.print("DEBUG: CmdlineValue[",key,"]=",self.CmdlineValue[key])
+                        skipNext=True
+                    else:
+                        myLog.print("ERROR: Parsing argument["+str(i)+"]="+myArg+" should be followed by a value")
+                else:
+                    myLog.print("ERROR: Parsing argument["+str(i)+"]="+myArg+" is unknown")
+            else:
+                myLog.print("ERROR: Parsing argument["+str(i)+"]="+myArg+" should start with --")
+                
+            
         
 
     def readConfigFile(self):
+        myLog.print("Reading configuration file ", self.configFile)
         with open(self.configFile, 'r', encoding='UTF-8', errors='replace') as myFile:
             pattern = re.compile("^\s*(\S+)\s*=\s*(\S.*)\s*$")
             comment = re.compile("^\s*#")
@@ -878,34 +908,40 @@ class ArgsList:
                 rp = pattern.match(myLine)
                 if (rp):
                     self.fileValues[rp.group(1)]= rp.group(2)
-                    myLog.print("Found config item ("+str(rp.group(1))+ ")= '" + str(rp.group(2))+"'")
+                    #myLog.print("DEBUG: Found config item ("+str(rp.group(1))+ ")= '" + str(rp.group(2))+"'")
                 else:
                     rc = comment.match(myLine)
                     if (not rc):
                         myLog.print("ERROR config file",self.configFile,"line ", myLine," NOT in the form Field = Value")
+        #myLog.print("DEBUG:Configuration file ", self.configFile,' is read')
         
-        myLog.print("Read configuration file ", self.configFile)
+        
         
         
     def addArg(self, key, defaultVal = None, helper = None,  typedescr=None):
         self.arglist[key] = Arg(key, defaultVal, helper, typedescr=typedescr)
-        self.parser.add_argument('--'+key, dest=key, action='store', default=None, help=helper)
+        #self.parser.add_argument('--'+key, dest=key, action='store', default=None, help=helper)
         self.configFile = 'BuildIndex.ini'
         
-    def doParse(self):
+    def doParse(self, cmdline):
         #myLog.print("Parsing Arguments from Cmdline AND configFile()")
-        self.args = self.parser.parse_args()
+        # first, --conf is used,
+        #   if defined, the configuration file is read
+        #   if not defined, the default configuration file is read
+        # then args are parsed in the order they appear in the commandline
+    
+
+        self.argsParse(cmdline)
         
         #self.configFile has already a default value
-        if (self.args.configFile):
-            if (os.path.isfile( self.args.configFile)):    
-                self.configFile = self.args.configFile
+        if (('configFile' in self.CmdlineValue) and self.CmdlineValue['configFile']):
+            if (os.path.isfile( self.CmdlineValue['configFile'])):    
+                self.configFile = self.CmdlineValue['configFile']
             else:
-                myLog.print("ERROR: Configuration file Argument", self.args.configFile,"does not exist!  fall-back to",self.configFile)
+                myLog.print("ERROR: Configuration file Argument", self.CmdlineValue['configFile'],"does not exist!  fall-back to",self.configFile)
         
         if (os.path.isfile(self.configFile)):
             self.readConfigFile()
-            myLog.print("Read configuration file ", self.configFile) 
         else:
             myLog.print("ERROR : configFile ",self.configFile,"does NOT exist" )
             self.configFile = None
@@ -921,8 +957,8 @@ class ArgsList:
             if (key != 'configFile'):
                 val = self.fileValues[key] if (self.fileValues and key in self.fileValues) else arg.default
                 
-                if (hasattr(self.args,key) and getattr(self.args,key)):
-                    val = deNormalize(getattr(self.args,key))
+                if (key in self.CmdlineValue):
+                    val = deNormalize(self.CmdlineValue[key])
                     if (key != 'Verbose') and (key != 'EpubIndex'):
                         self.containedInConfig = False
                         myLog.print("Argument(", key,')=', val, " is new: will rebuild the config File")
@@ -950,10 +986,6 @@ class ArgsList:
         if self.getValue('Verbose'):
             self.Verbose()
                 
-        currentPlatform = str(platform.system())
-        if self.getValue('System') != currentPlatform:
-            myLog.print("FATAL ERROR: config-file for '" + str(self.getValue('System')) + "' not suitable for '" + currentPlatform + "' :: ABORT")
-            exit(-1)
 
         
         
@@ -1040,35 +1072,38 @@ class ArgsList:
 #--------------------------------------------------------------
 
 
-if __name__ == "__main__":
-    # first, --conf is used,
-    #   if defined, the configuration file is read
-    #   if not defined, the default configuration file is read
-    # then args are parsed in the order they appear in the commandline
-    
-   
+  
+def ExecuteCmdLine(CmdLineArg):
     
     parser = ArgsList('Build an index epub from Calibre Database.')
     
-    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: none)',  typedescr = 'int')
+    parser.addArg('MaxAuthors', defaultVal=None, helper='maximum number of books (default: None)',  typedescr = 'int')
     parser.addArg('URL','https://www.mysite.com/ebooks/', 'Calisson web site URL'),
     parser.addArg('Cover','_Resources/Library.jpg', 'Book cover Image'),
     parser.addArg('Database','metadata.db', 'the Calibre datapath'),
-    parser.addArg('Filebase','.','the path to the Calibre files')
+    parser.addArg('Filebase','.\\','the path to the Calibre files')
     parser.addArg('EpubIndex','index.epub','basename of generated epub')
     parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', typedescr = 'list')
     parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
-    parser.addArg('System', str(platform.system()),'Operating System')
-    parser.addArg('All', None, 'Generate all possible indexes for this system')
+    parser.addArg('All', None, 'Generate all possible indexes in the argument directory')
     
     
-    parser.doParse()
-    myLog.print("DEBUG: avoidSubjects", parser.getValue('avoidSubjects'))
+    parser.doParse(CmdLineArg)
+    #myLog.print("DEBUG: avoidSubjects", parser.getValue('avoidSubjects'))
     
+    dirForAll = parser.getValue('All')
+    if (dirForAll != None):
+        myLog.print("INFO: Recursive execution in ", dirForAll)
+        for f in os.listdir(dirForAll):
+            myFile = dirForAll + '/' + f
+            if (os.path.isfile(myFile) and myFile.endswith('.ini')):
+                ExecuteCmdLine(["BuildIndex.py","--configFile",myFile])
+        myLog.print("\n\nINFO: Recursive execution in ", dirForAll," DONE")
+        exit(0)
+        
     
     lockfile =  parser.getValue('EpubIndex') + '.lock'
     
-    print("PARSING", lockfile)
     parser.LockConfig(lockfile)
    
     
@@ -1086,12 +1121,16 @@ if __name__ == "__main__":
     
     libraryName = parser.getValue('EpubIndex')
     myLibrary.Build(libraryName, parser.getValue('MaxAuthors'))
-    myLog.print("Library BUILT\n")
+    myLog.print("Library "+libraryName+" BUILT\n")
     
     
     iniFile = re.sub('.epub','',libraryName)+ '.ini'
     
     parser.DumpConfig(iniFile, '# Index configuration file for Calisson')
     parser.UnlockConfig()
-    
+    myLog.print("INFO: End of processing for Library "+libraryName+"\n\n")
+
+if __name__ == "__main__":
+
+    ExecuteCmdLine(sys.argv)
                 

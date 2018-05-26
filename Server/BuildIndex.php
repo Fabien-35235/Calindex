@@ -27,46 +27,7 @@
   //------------------------------------------------------------------------
   
  
-  // Default values for variables in the configuration file
-  $ConfigDir = "_Indexes";
-  $css= "_Resources/style.css";
-  $database= "metadata.db";
-  $python='';
-  $script='BuildIndex.py';
-  $logs= '_Indexes';
-  
-  
-  function PrintPageStart(){
-    global $css;
-    
-    echo '<!DOCTYPE html>'."\n";
-    echo '<html><head>'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1" />'."\n";
-    echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
-    echo '<head>'."\n";
-    echo "  <link rel='stylesheet' href='$css'>\n";
-    echo '</head>'."\n";
-    echo '<title>ePub as an index </title>'."\n";
-    echo '<BODY>'."\n";
-  }
-  
-  $xml=simplexml_load_file("CaliNdex.ini");
-  
-  
-  if ($xml){   
-    if (isset($xml->indexes))  {$ConfigDir = $xml->indexes;}
-    if (isset($xml->database)) {$database = $xml->database;}
-    if (isset($xml->python))   {$python = $xml->python;}
-    if (isset($xml->script))   {$script = $xml->script;}
-    if (isset($xml->logs))     {$logs = $xml->logs;}
-  } else {
-    PrintPageStart();
-    echo "<H1>ERROR: Database $database cannot be read</H1>\n";
-    die();
-  }
-
-
-
+  include 'inits.php';
  
   function GetDateOfFile($Filename){
       $stats = stat($Filename);
@@ -80,7 +41,7 @@
   // ---------------------------------------------------------------------
 
   if (! isset($_GET['EpubIndex'] )){
-    PrintPageStart();
+    PrintPageStart('BuildIndex.php');
     echo "<H1>ERROR: Malformed URL ?EpubIndex= must be specified</H1>\n";
     die();
   }

@@ -1,44 +1,8 @@
 <?php
  
  
-   // Default values for variables in the configuration file
-   $ConfigDir = "_Indexes";
-   $css= "_Resources/style.css";
-   $database= "metadata.db";
-   $script='BuildIndex.py';
-   $logs= '_Indexes';
+   include 'inits.php';
   
-
-   
-   $xml=simplexml_load_file("CaliNdex.ini");
-   if ($xml){
-    
-      if (isset($xml->database)) {$database = $xml->database;}
-      if (isset($xml->download)) {$Download = $xml->download;}
-      if (isset($xml->css))      {$css = $xml->css;}
-      if (isset($xml->indexes))  {$ConfigDir = $xml->indexes;}
-      if (isset($xml->logs))     {$logs = $xml->logs;}
-    
-   } else {
-      echo "<H1>ERROR: Database $database cannot be read</H1>\n";
-   }
- 
-  $URL= basename(__FILE__);
-
- 
-  function PrintPageStart(){
-    global $css;
-    
-    echo '<!DOCTYPE html>'."\n";
-    echo '<html><head>'."\n";
-    echo '<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1" />'."\n";
-    echo '<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">'."\n";
-    echo '<head>'."\n";
-    echo "  <link rel='stylesheet' href='$css'>\n";
-    echo '</head>'."\n";
-    echo '<title>ePub as an index </title>'."\n";
-    echo '<BODY>'."\n";
-  }
 
   // Configuration of each index file is stored in "$ConfigDir/filename.epub.conf"
   // syntax is:
@@ -179,7 +143,7 @@
       
       $AllConfs = GetAllConfigs($ConfigDir, $tagsList, $DatabaseDate);
       $ConfigList = array_keys($AllConfs);  // the list of .conf files
-      PrintPageStart();
+      PrintPageStart('ePub as an Index');
       echo "<h1>Index of books as a ePub</h1>\n";
       echo "<p>The date of the database is " . date("d/m/Y H:i:s",$DatabaseDate) . "</p>\n";
       echo "<p>Please chose a pre-existing index, or create your own</p>\n";

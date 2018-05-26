@@ -53,12 +53,14 @@
       $res=array();
       $f= fopen($Filename, "r");
       $res['mode']='None';
-      foreach ($TagsList as $t){
-         $res[$t]='No';
-      }
       $res['Name'] = $Name;
       $res['configFile'] = $Filename;
-      
+      // the nomal mode is avoidSubjects, onlySubjects will be converted to it
+      // if no mode explicitly called, all tags
+      foreach ($TagsList as $t){
+         $res[$t]='Y';
+      }
+
       while ($str = fgets($f)){
          if (preg_match("/\s*#/", $str)){
             continue;
@@ -67,22 +69,27 @@
             //echo ("Found "); print_r($groups[1]); echo (" = "); print_r( $groups[2]); echo("<br>\n");
             $val = preg_replace("/(\n|\r|\f)/","",$groups[2]);
             $res[$groups[1]]=$val ;
-            if (($groups[1] === 'onlySubjects') or ($groups[1] ==='avoidSubjects')){
-                  //echo ("Found($groups[1])=$groups[2]");
-                  $tags = explode(',', $val);
-                 
-                  foreach ($tags as $t){
-                     //$t = preg_replace("/\%%20/"," ",$t); // Surprising, but because % has to be doubled in the .ini file due to python libs.     
-                     $res[$t]='Yes' ;
-                     if ($t !="None"){
-                        $res['mode']= $groups[1]; // We do it only here, so that tag=None does not change the mode 
-                     }
-                     //echo("TAG '$t'\n");
+            
+            
+            if (($groups[1] === 'avoidSubjects') && ($val !== 'None') && ($val !== '') ) {
+               foreach ($TagsList as $t){
+                  $res[$t]='Y';
+               }
+               $tags = explode(',', $val);
+               foreach ($tags as $t){
+                     $res[$t]='n' ;
                }
             }
-            //if ($groups[1] === 'Date'){
-            //    $res['Date'] = date_parse($res['Date']);            
-            //}
+            
+            if (($groups[1] === 'onlySubjects') && ($val !== 'None') && ($val !== '') ){
+               foreach ($TagsList as $t){
+                  $res[$t]='n';
+               }
+               $tags = explode(',', $val);
+               foreach ($tags as $t){
+                     $res[$t]='Y' ;
+               }
+            }
          }
       }
     
@@ -91,12 +98,14 @@
       $EpubFile = $res['EpubIndex'];
       $stats = stat($EpubFile); 
       if (isset($stats)){
-         $res['Date'] = date("d/m/Y H:i:s",$stats['mtime']);
+         $res['Date'] = date("d/m/Y",$stats['mtime']);
+         $res['Time'] = date("H:i:s",$stats['mtime']);
          $res['Size'] = sprintf("%2.2f MB",intval($stats['size'])/(1024*1024));
          $res['uptodate'] = ($stats['mtime'] >= $DatabaseDate) ? 'Yes' : 'No';
          //-------- TODO:should also find the number of ebooks and of authors.
       } else {
-         $res['Date'] =  '?';
+         $res['Date'] = '?';
+         $res['Time'] = '?';
          $res['Size'] = '?';
          $res['uptodate'] = 'No';
       }
@@ -140,7 +149,7 @@
       echo "</tr>\n";
    }
     
-   function PrintOneField($AllConfs, $ConfigList, $Field , $TagName, $Default='N/A'){
+   function PrintOneField($AllConfs, $ConfigList, $Field , $TagName, $Default='-'){
       echo "<tr><td>$TagName</td>\n";
       foreach ($ConfigList as $conf){
           echo "<td>" . GetConfigValue($AllConfs, $conf, $Field) . "</td>";
@@ -160,10 +169,10 @@
       // returns the name of the first index in the form custom-%d which is not used
       for($i=1;$i<100;$i++){
          $name = "custom-$i";
-         if (IsAFreeName($AllConfs, $ConfigList, $name)) {return "$name.epub";}
+         if (IsAFreeName($AllConfs, $ConfigList, $name)) {return $name;}
       }
       echo "<H1>ERROR: No more free custom-INT.epub names</H1>";
-      return "index-". date("Y-m-d_H-i-s"). ".epub"; 
+      return "index-". date("Y-m-d_H-i-s"); 
    }
    
    function Execute($ConfigDir, $tagsList, $DatabaseDate){
@@ -176,15 +185,16 @@
       echo "<p>Please chose a pre-existing index, or create your own</p>\n";
       echo "<p>NB: if an index is marked NOT up to date, it will be rebuilt before download<p>\n";
       
-      $NewEpub = $ConfigDir."/".GetFreeName($AllConfs, $ConfigList);
+      $NewEpub = GetFreeName($AllConfs, $ConfigList);
       
       echo "<form method='GET' action='BuildIndex.php?'>\n";
-      echo "<input type='hidden' name='EpubIndex' value='$NewEpub'>\n";
+      echo "<input type='hidden' name='ConfigDir' value='$ConfigDir'>\n";
+      
       echo "<table>\n";
-
-      PrintOneField($AllConfs, $ConfigList, 'Name' , 'Name','Build my own');
-   
       $InputField = "<input type='text' name='EpubIndex' value = '$NewEpub' maxLength='32'>";
+      PrintOneField($AllConfs, $ConfigList, 'Name' , 'Name',$InputField );
+   
+      
       //PrintOneField($AllConfs, $ConfigList, 'EpubIndex' , 'File', $InputField);
     
     
@@ -192,8 +202,8 @@
       foreach ($ConfigList as $conf){
          echo "<td></td>";
       }
-      echo ("<td></td></tr>\n");
-      PrintOneField($AllConfs, $ConfigList,'mode','Mode','avoidSubject');
+      echo ("<td>Excepted</td></tr>\n");
+      //PrintOneField($AllConfs, $ConfigList,'mode','Mode','avoidSubject');
       foreach ($tagsList as $tag){
          PrintOneTag($AllConfs, $ConfigList, $tag);
       }
@@ -201,8 +211,8 @@
       //PrintOneField($AllConfs, $ConfigList,'authors','number of authors');
       //PrintOneField($AllConfs, $ConfigList,'books','number of books');
       PrintOneField($AllConfs, $ConfigList,'Size','size of the epub');
-      PrintOneField($AllConfs, $ConfigList,'Date', 'Creation Date');
-      
+      PrintOneField($AllConfs, $ConfigList,'Date', 'Creation date');
+      PrintOneField($AllConfs, $ConfigList,'Time', 'Creation time');
       PrintOneField($AllConfs, $ConfigList,'uptodate','Up to date'); 
       
       echo '<tr><td>Select this index</td>';

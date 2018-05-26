@@ -86,7 +86,13 @@
   }
   
   $DatabaseDate = GetDateOfFile($database);
-  $EpubFile = urldecode($_GET['EpubIndex']);
+  $ConfigDir = urldecode($_GET['ConfigDir']);
+  // safety check: ConfigDir must start by letters
+  if (preg_match("/^\w/", $ConfigDir)){
+    $EpubFile = $ConfigDir.'/'.urldecode($_GET['EpubIndex']).'.epub';
+  } else {
+    $EpubFile = './'.urldecode($_GET['EpubIndex']).'.epub';
+  }
   $EpubDate = GetDateOfFile($EpubFile);
   
   
@@ -107,7 +113,7 @@
   $separator = '';
   $myArgs = '';
   foreach($_GET as $key => $value) {
-      if (($key != 'EpubIndex') and ($key != 'configFile')){
+      if (($key != 'EpubIndex') and ($key != 'configFile') and ($key != 'ConfigDir')){
         $myArgs = $myArgs . $separator . urldecode($key);
         //echo("ARG($key)=$value, ".urldecode($key)."\n"); 
         $separator = ',';

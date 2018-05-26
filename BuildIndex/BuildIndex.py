@@ -64,10 +64,11 @@ import zipfile
 import argparse
 import importlib
 import sqlite3
-import configparser
+#import configparser
 import signal
 import json
 import urllib, urllib.parse
+import platform
 
 
 class myLogger:
@@ -750,11 +751,11 @@ class Library:
         if self.excludedTags:
             GlobIndex.content += '<p>Excluded tags: '
             excludeURL = '&avoidSubjects='
+            separator =''
             for tag in self.excludedTags:
-                
-                GlobIndex.content += encode_for_xml(tag) + ','  
-                excludeURL += NormalizeURL(tag) + ','
-                 
+                GlobIndex.content += separator + encode_for_xml(tag)   
+                excludeURL += separator+ NormalizeURL(tag)
+                separator = ','
             GlobIndex.content += '</p>'    
         
         if self.onlyTags :
@@ -833,7 +834,8 @@ class Arg:
  
        
     def getConfig(self):
-        line = self.key + ' = ' 
+        myFormat = "{0:<17s} = "
+        line = myFormat.format(self.key) 
         if (isinstance(self.value, list)):
             sep = ''
             for v in self.value:
@@ -845,12 +847,9 @@ class Arg:
 
 
     def getHelp(self):
-        return self.key + ' = "'+ str(self.value) + '" : default= "' + str(self.default) + '" ' + self.helpers                       
-       
- 
-
-
-
+        myFormat = "{0:<17s} = {1:<20s} :default ={2:<20s} {3:s}"
+        return myFormat.format(self.key, "'"+str(self.value)+"'", "'"+str(self.default)+"'", self.helpers)                       
+                           
         
 class ArgsList:
     def __init__(self, helper):
@@ -873,7 +872,7 @@ class ArgsList:
             
             for myLine in myFile:
                 myLine = myLine.replace('\n','')
-                if (myLine == '[BuildIndex]'):
+                if (myLine == '[BuildIndex]') or (myLine == ''):
                     continue    
                 
                 rp = pattern.match(myLine)
@@ -881,10 +880,9 @@ class ArgsList:
                     self.fileValues[rp.group(1)]= rp.group(2)
                     myLog.print("Found config item ("+str(rp.group(1))+ ")= '" + str(rp.group(2))+"'")
                 else:
-                    
                     rc = comment.match(myLine)
                     if (not rc):
-                        myLog.print("ERROR config file",self.configFile,"line ", myLine," NOT a known parameter")
+                        myLog.print("ERROR config file",self.configFile,"line ", myLine," NOT in the form Field = Value")
         
         myLog.print("Read configuration file ", self.configFile)
         
@@ -951,6 +949,12 @@ class ArgsList:
         myLog.startLog(self.getValue('Log'))
         if self.getValue('Verbose'):
             self.Verbose()
+                
+        currentPlatform = str(platform.system())
+        if self.getValue('System') != currentPlatform:
+            myLog.print("FATAL ERROR: config-file for '" + str(self.getValue('System')) + "' not suitable for '" + currentPlatform + "' :: ABORT")
+            exit(-1)
+
         
         
     def getValue(self, key):
@@ -1024,7 +1028,8 @@ class ArgsList:
                     arg=self.arglist[key]
                     #myLog.print(arg.getConfig())
                     print(arg.getConfig(), file=myFile)
-                    
+            
+            # print("System = ",platform.system(), file=myFile) : Now managed as a regular argument        
             # 'authors','number of authors';
             # 'books','number of books';
             # size is directly readfrom the epub file
@@ -1053,6 +1058,8 @@ if __name__ == "__main__":
     parser.addArg('EpubIndex','index.epub','basename of generated epub')
     parser.addArg('onlySubjects', None, 'Only subjects in this LIST will be indexed', typedescr = 'list')
     parser.addArg('avoidSubjects', None, 'Subjects in this LIST will NOT be indexed', typedescr = 'list')
+    parser.addArg('System', str(platform.system()),'Operating System')
+    parser.addArg('All', None, 'Generate all possible indexes for this system')
     
     
     parser.doParse()

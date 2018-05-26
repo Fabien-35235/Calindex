@@ -4,4 +4,4 @@ BuildIndex/*.lock
 *.URL
 Install
 Test
-
+*.lnk

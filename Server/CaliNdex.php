@@ -1,7 +1,8 @@
  <?php
  
   include 'inits.php';
-
+  $URL= basename(__FILE__);
+  
   function describeTable($name,$conn){
       
         $q = "SELECT * from ". $name;

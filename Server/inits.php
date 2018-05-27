@@ -19,10 +19,7 @@
   $python=''; 
   $script='BuildIndex.py';
 
- 
-  $URL= basename(__FILE__);
- 
- 
+  
   $xml=simplexml_load_file("CaliNdex.conf");
   if ($xml){  
     if (isset($xml->database)) {$database = $xml->database;}

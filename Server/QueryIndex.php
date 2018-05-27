@@ -2,7 +2,7 @@
  
  
    include 'inits.php';
-  
+   $URL= basename(__FILE__);
 
   // Configuration of each index file is stored in "$ConfigDir/filename.epub.conf"
   // syntax is:
@@ -185,8 +185,9 @@
             echo '<td><A href="'.GetConfigValue($AllConfs, $conf, 'EpubIndex') . '">Download</A></td>';
          } else {
             echo '<td><A href="BuildIndex.php?configFile=' . GetConfigValue($AllConfs, $conf, 'configFile') ;
-            echo '&EpubIndex=' . GetConfigValue($AllConfs, $conf, 'EpubIndex') ;
-            echo '">DOWNLOAD</A></td>';
+            echo "&ConfigDir=$ConfigDir";
+            echo '&EpubIndex=' . basename(GetConfigValue($AllConfs, $conf, 'EpubIndex'),'.epub') ;
+            echo '">Build&Load</A></td>';
          }
       }  
       echo "<td><input type=submit value='Download'></td></tr>";

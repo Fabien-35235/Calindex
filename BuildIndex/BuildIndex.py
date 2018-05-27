@@ -415,6 +415,7 @@ def clean(myString):
 #cf https://www.w3schools.com/tags/ref_urlencode.asp
 def NormalizeURL(myString):
     res =urllib.parse.quote_plus(myString,safe='/:',errors='xmlcharrefreplace')
+    res = res.replace('+','%20')
     return res
 
   
@@ -422,7 +423,7 @@ def NormalizeURL(myString):
 def deNormalize(myString):
     res =urllib.parse.unquote(myString)
     res = res.replace('+',' ')
-    myLog.print("deNormalize(",encode_for_xml(myString),")=",encode_for_xml(res))
+    #myLog.print("deNormalize(",encode_for_xml(myString),")=",encode_for_xml(res))
     return res
 
 
@@ -769,7 +770,7 @@ class Library:
             GlobIndex.content += '</p>'    
                 
         
-        reloadURL  = self.BaseURL+ 'BuildIndex.php?EpubIndex='+Filename # onlyURL+excludeURL #NO, these are useless now, because everythng is stores in config file 
+        reloadURL  = self.BaseURL+ 'BuildIndex.php?EpubIndex='+Filename # onlyURL+excludeURL #NO, these are useless now, because everythng is stored in config file 
         
         GlobIndex.content += '<p style="text-align:center;"><a href="'+ reloadURL + '">Reload this index book</a></p>\n'
         
@@ -1097,7 +1098,7 @@ def ExecuteCmdLine(CmdLineArg):
         for f in os.listdir(dirForAll):
             myFile = dirForAll + '/' + f
             if (os.path.isfile(myFile) and myFile.endswith('.ini')):
-                ExecuteCmdLine(["BuildIndex.py","--configFile",myFile])
+                ExecuteCmdLine(["BuildIndex.py","--All","None","--configFile",myFile])
         myLog.print("\n\nINFO: Recursive execution in ", dirForAll," DONE")
         exit(0)
         

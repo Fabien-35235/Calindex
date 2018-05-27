@@ -1,5 +1,6 @@
 <?php
   include 'inits.php';
+  $URL= basename(__FILE__);
   PrintPageStart("Calisson");
   ?>
   

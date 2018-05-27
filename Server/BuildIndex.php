@@ -12,8 +12,9 @@
   //    <script>   is the path to the python script
   //  
   // GET arguments:
-  //     EpubIndex  = .epub full name of the ebook to build, relative to the directory of the PHP page. 
+  //     EpubIndex  = BASENAME of full name of the ebook to build (without .epub) , relative to the directory of the PHP page. 
   //     configFile = .ini file to use (optional)
+  //     ConfigDir  = directory to store .epub and .ini
   //     All other arguments should have the form:
   //     Tag=on,  listing a Tag to be OMITTED from the index
   //
@@ -28,7 +29,8 @@
   
  
   include 'inits.php';
- 
+  $URL= basename(__FILE__);
+  
   function GetDateOfFile($Filename){
       $stats = stat($Filename);
       if (isset($stats)) return $stats['mtime']; 
@@ -49,10 +51,16 @@
   $DatabaseDate = GetDateOfFile($database);
   $ConfigDir = urldecode($_GET['ConfigDir']);
   // safety check: ConfigDir must start by letters
+  // or be empty
+  // Epubindex may be only the basename, or also with ending.epub
+  // EpubIndex may be with starting Dir or not
+  //
+  $newName = urldecode($_GET['EpubIndex']);
+  $newName = str_replace('.epub','',$newName);
   if (preg_match("/^\w/", $ConfigDir)){
-    $EpubFile = $ConfigDir.'/'.urldecode($_GET['EpubIndex']).'.epub';
+    $EpubFile = "$ConfigDir/$newName.epub";
   } else {
-    $EpubFile = './'.urldecode($_GET['EpubIndex']).'.epub';
+    $EpubFile = "./$newName.epub";
   }
   $EpubDate = GetDateOfFile($EpubFile);
   
@@ -95,7 +103,7 @@
   }
   $myCmd = $myCmd." --Verbose ". escapeshellarg('t');
   $myCmd = $myCmd." --Log ". escapeshellarg($ConfigDir);
-  
+  $myCmd = $myCmd." --All None";
   $debug = False;
   //$debug = True;
 

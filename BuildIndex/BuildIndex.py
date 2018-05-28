@@ -695,7 +695,7 @@ class Library:
         #myLog.print(curRow.keys())
         while(curRow != None):
             
-            #myLog.print("TEST", curRow['title'],  curRow['tag_name'])
+            #myLog.print("DEBUG:TEST", curRow['title'],  curRow['tag_name'])
             if (self.excluded(curRow['tag_name'])):
                 #myLog.print("EXCLUDED", curRow['title'], curRow['tag_name'])
                 curRow= cur.fetchone()
@@ -703,8 +703,11 @@ class Library:
             
             
             if (curRow['author_name'] != curName):
-                curAuthor = Author(curRow['author_name'])
                 curName = curRow['author_name']
+                if (curName == None):
+                    curName = "None"
+                curAuthor = Author(curName)
+                
                 self.Authors.append(curAuthor)
                 
             curBook = Book(curAuthor,
@@ -1108,9 +1111,6 @@ def ExecuteCmdLine(CmdLineArg):
     parser.LockConfig(lockfile)
    
     
-    CheckPip()
-    Image = ImportModule('PIL.Image', "defaulting to ImageMagic")
-    url_normalize = CheckModule('url_normalize')
 
     
     myLibrary = Library(parser.getValue('URL'),
@@ -1132,6 +1132,9 @@ def ExecuteCmdLine(CmdLineArg):
     myLog.print("INFO: End of processing for Library "+libraryName+"\n\n")
 
 if __name__ == "__main__":
+    CheckPip()
+    Image = ImportModule('PIL.Image', "defaulting to ImageMagic")
+    url_normalize = CheckModule('url_normalize')
 
     ExecuteCmdLine(sys.argv)
                 
